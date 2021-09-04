@@ -1,0 +1,11 @@
+[package]
+name = "sixels_gb"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bitflags = "1.2"
+anyhow = "1.0"
+lazy_static = "1.4"
