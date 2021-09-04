@@ -13,3 +13,9 @@ bitflags! {
         const C = 1 << 4;
     }
 }
+
+impl From<u8> for CpuFlag {
+    fn from(byte: u8) -> Self {
+        CpuFlag::from_bits_truncate(byte)
+    }
+}
