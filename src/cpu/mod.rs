@@ -242,6 +242,8 @@ impl Cpu {
             0xC4 => self.branch_call(!self.reg.f.contains(CpuFlag::Z)),
             0xD4 => self.branch_call(!self.reg.f.contains(CpuFlag::Z)),
 
+            0xC9 => { self.pc = self.pop_stack(); 4 }
+
             // --- STORE INSTRUCTIONS ---
 
             // push rr
@@ -250,30 +252,50 @@ impl Cpu {
             0xE5 => { self.push_stack(self.reg.hl()); 16 }
             0xF5 => { self.push_stack(self.reg.af()); 16 }
 
+            0xC1 => { let w = self.pop_stack(); self.reg.set_bc(w); 12 }
+            0xD1 => { let w = self.pop_stack(); self.reg.set_de(w); 12 }
+            0xE1 => { let w = self.pop_stack(); self.reg.set_hl(w); 12 }
+            0xF1 => { let w = self.pop_stack(); self.reg.set_af(w); 12 }
+
             // --- ALU INSTRUCTIONS ---
 
             // inc r
-            0x04 => { let cyc; (self.reg.c, cyc) = self.alu_inc(self.reg.b); cyc }
-            0x14 => { let cyc; (self.reg.c, cyc) = self.alu_inc(self.reg.d); cyc }
-            0x24 => { let cyc; (self.reg.c, cyc) = self.alu_inc(self.reg.h); cyc }
+            0x04 => { let cyc; (self.reg.b, cyc) = self.alu_inc(self.reg.b); cyc }
+            0x14 => { let cyc; (self.reg.d, cyc) = self.alu_inc(self.reg.d); cyc }
+            0x24 => { let cyc; (self.reg.h, cyc) = self.alu_inc(self.reg.h); cyc }
             0x34 => { let hl = self.reg.hl(); let (v, cyc) = self.alu_inc(self.mem_read(hl));
-                self.mem_write(hl, v); cyc }
+                self.mem_write(hl, v); cyc + 8 }
             0x0C => { let cyc; (self.reg.c, cyc) = self.alu_inc(self.reg.c); cyc }
-            0x1C => { let cyc; (self.reg.c, cyc) = self.alu_inc(self.reg.e); cyc }
-            0x2C => { let cyc; (self.reg.c, cyc) = self.alu_inc(self.reg.l); cyc }
-            0x3C => { let cyc; (self.reg.c, cyc) = self.alu_inc(self.reg.a); cyc }
+            0x1C => { let cyc; (self.reg.e, cyc) = self.alu_inc(self.reg.e); cyc }
+            0x2C => { let cyc; (self.reg.l, cyc) = self.alu_inc(self.reg.l); cyc }
+            0x3C => { let cyc; (self.reg.a, cyc) = self.alu_inc(self.reg.a); cyc }
+
+            // inc rr
+            0x03 => { let w = self.reg.bc().wrapping_add(1); self.reg.set_bc(w); 8 }
+            0x13 => { let w = self.reg.de().wrapping_add(1); self.reg.set_de(w); 8 }
+            0x23 => { let w = self.reg.hl().wrapping_add(1); self.reg.set_hl(w); 8 }
+            0x33 => { self.sp = self.sp.wrapping_add(1); 8 }
 
             // dec r
-            0x05 => { let cyc; (self.reg.c, cyc) = self.alu_dec(self.reg.b); cyc }
-            0x15 => { let cyc; (self.reg.c, cyc) = self.alu_dec(self.reg.d); cyc }
-            0x25 => { let cyc; (self.reg.c, cyc) = self.alu_dec(self.reg.h); cyc }
+            0x05 => { let cyc; (self.reg.b, cyc) = self.alu_dec(self.reg.b); cyc }
+            0x15 => { let cyc; (self.reg.d, cyc) = self.alu_dec(self.reg.d); cyc }
+            0x25 => { let cyc; (self.reg.h, cyc) = self.alu_dec(self.reg.h); cyc }
             0x35 => { let hl = self.reg.hl(); let (v, cyc) = self.alu_dec(self.mem_read(hl));
-                self.mem_write(hl, v); cyc }
+                self.mem_write(hl, v); cyc + 8 }
             0x0D => { let cyc; (self.reg.c, cyc) = self.alu_dec(self.reg.c); cyc }
-            0x1D => { let cyc; (self.reg.c, cyc) = self.alu_dec(self.reg.e); cyc }
-            0x2D => { let cyc; (self.reg.c, cyc) = self.alu_dec(self.reg.l); cyc }
-            0x3D => { let cyc; (self.reg.c, cyc) = self.alu_dec(self.reg.a); cyc }
+            0x1D => { let cyc; (self.reg.e, cyc) = self.alu_dec(self.reg.e); cyc }
+            0x2D => { let cyc; (self.reg.l, cyc) = self.alu_dec(self.reg.l); cyc }
+            0x3D => { let cyc; (self.reg.a, cyc) = self.alu_dec(self.reg.a); cyc }
 
+            // rla
+            0x07 => { self.reg.a = self.alu_rl(self.reg.a).0; 4 }
+            // rlca
+            0x17 => { self.reg.a = self.alu_rlc(self.reg.a).0; 4 }
+            // rra
+            0x0F => { self.reg.a = self.alu_rr(self.reg.a).0; 4 }
+            // rrca
+            0x1F => { self.reg.a = self.alu_rrc(self.reg.a).0; 4 }
+         
             // add a,u8
             0x80 => self.alu_add(self.reg.b, false),
             0x81 => self.alu_add(self.reg.c, false),
@@ -283,6 +305,7 @@ impl Cpu {
             0x85 => self.alu_add(self.reg.l, false),
             0x86 => self.alu_add(self.mem_read(self.reg.hl()), false) + 4,
             0x87 => self.alu_add(self.reg.a, false),
+            0xC6 => { let b = self.fetch_byte(); self.alu_add(b, false) + 4 }
 
             // adc a,u8
             0x88 => self.alu_add(self.reg.b, true),
@@ -293,6 +316,7 @@ impl Cpu {
             0x8D => self.alu_add(self.reg.l, true),
             0x8E => self.alu_add(self.mem_read(self.reg.hl()), true) + 4,
             0x8F => self.alu_add(self.reg.a, true),
+            0xCE => { let b = self.fetch_byte(); self.alu_add(b, true) + 4 }
 
             // sub a,u8
             0x90 => self.alu_sub(self.reg.b, false),
@@ -303,6 +327,7 @@ impl Cpu {
             0x95 => self.alu_sub(self.reg.l, false),
             0x96 => self.alu_sub(self.mem_read(self.reg.hl()), false) + 4,
             0x97 => self.alu_sub(self.reg.a, false),
+            0xD6 => { let b = self.fetch_byte(); self.alu_sub(b, false) + 4 }
 
             // sbc a,u8
             0x98 => self.alu_sub(self.reg.b, true),
@@ -313,6 +338,7 @@ impl Cpu {
             0x9D => self.alu_sub(self.reg.l, true),
             0x9E => self.alu_sub(self.mem_read(self.reg.hl()), true) + 4,
             0x9F => self.alu_sub(self.reg.a, true),
+            0xDE => { let b = self.fetch_byte(); self.alu_sub(b, true) + 4 }
 
             // and a,u8
             0xA0 => self.alu_and(self.reg.b),
@@ -323,6 +349,7 @@ impl Cpu {
             0xA5 => self.alu_and(self.reg.l),
             0xA6 => self.alu_and(self.mem_read(self.reg.hl())) + 4,
             0xA7 => self.alu_and(self.reg.a),
+            0xE6 => { let b = self.fetch_byte(); self.alu_and(b) + 4 }
 
             // xor a,u8
             0xA8 => self.alu_xor(self.reg.b),
@@ -333,6 +360,7 @@ impl Cpu {
             0xAD => self.alu_xor(self.reg.l),
             0xAE => self.alu_xor(self.mem_read(self.reg.hl())) + 4,
             0xAF => self.alu_xor(self.reg.a),
+            0xEE => { let b = self.fetch_byte(); self.alu_xor(b) + 4 }
 
             // or a,u8
             0xB0 => self.alu_or(self.reg.b),
@@ -343,6 +371,7 @@ impl Cpu {
             0xB5 => self.alu_or(self.reg.l),
             0xB6 => self.alu_or(self.mem_read(self.reg.hl())) + 4,
             0xB7 => self.alu_or(self.reg.a),
+            0xF6 => { let b = self.fetch_byte(); self.alu_or(b) + 4 }
 
             // cp a,u8
             0xB8 => self.alu_cp(self.reg.b),
@@ -353,6 +382,7 @@ impl Cpu {
             0xBD => self.alu_cp(self.reg.l),
             0xBE => self.alu_cp(self.mem_read(self.reg.hl())) + 4,
             0xBF => self.alu_cp(self.reg.a),
+            0xFE => { let b = self.fetch_byte(); self.alu_cp(b) + 4 }
 
             // --- PREFIXED INSTRUCTIONS ---
 
@@ -369,6 +399,48 @@ impl Cpu {
     #[rustfmt::skip]
     fn exec_cb_opcode(&mut self, opcode: u8) -> u8 {
         match opcode {
+            // rlc r
+            0x00 => { let cyc; (self.reg.b, cyc) = self.alu_rlc(self.reg.b); cyc }
+            0x01 => { let cyc; (self.reg.c, cyc) = self.alu_rlc(self.reg.c); cyc }
+            0x02 => { let cyc; (self.reg.d, cyc) = self.alu_rlc(self.reg.d); cyc }
+            0x03 => { let cyc; (self.reg.e, cyc) = self.alu_rlc(self.reg.e); cyc }
+            0x04 => { let cyc; (self.reg.h, cyc) = self.alu_rlc(self.reg.h); cyc }
+            0x05 => { let cyc; (self.reg.l, cyc) = self.alu_rlc(self.reg.l); cyc }
+            0x06 => { let hl = self.reg.hl(); let (v, cyc) = self.alu_rlc(self.mem_read(hl));
+                self.mem_write(hl, v); cyc + 8 }
+            0x07 => { let cyc; (self.reg.a, cyc) = self.alu_rlc(self.reg.a); cyc }
+            // rrc r
+            0x08 => { let cyc; (self.reg.b, cyc) = self.alu_rrc(self.reg.b); cyc }
+            0x09 => { let cyc; (self.reg.c, cyc) = self.alu_rrc(self.reg.c); cyc }
+            0x0A => { let cyc; (self.reg.d, cyc) = self.alu_rrc(self.reg.d); cyc }
+            0x0B => { let cyc; (self.reg.e, cyc) = self.alu_rrc(self.reg.e); cyc }
+            0x0C => { let cyc; (self.reg.h, cyc) = self.alu_rrc(self.reg.h); cyc }
+            0x0D => { let cyc; (self.reg.l, cyc) = self.alu_rrc(self.reg.l); cyc }
+            0x0E => { let hl = self.reg.hl(); let (v, cyc) = self.alu_rrc(self.mem_read(hl));
+                self.mem_write(hl, v); cyc + 8 }
+            0x0F => { let cyc; (self.reg.a, cyc) = self.alu_rrc(self.reg.a); cyc }
+
+            // rl r
+            0x10 => { let cyc; (self.reg.b, cyc) = self.alu_rl(self.reg.b); cyc }
+            0x11 => { let cyc; (self.reg.c, cyc) = self.alu_rl(self.reg.c); cyc }
+            0x12 => { let cyc; (self.reg.d, cyc) = self.alu_rl(self.reg.d); cyc }
+            0x13 => { let cyc; (self.reg.e, cyc) = self.alu_rl(self.reg.e); cyc }
+            0x14 => { let cyc; (self.reg.h, cyc) = self.alu_rl(self.reg.h); cyc }
+            0x15 => { let cyc; (self.reg.l, cyc) = self.alu_rl(self.reg.l); cyc }
+            0x16 => { let hl = self.reg.hl(); let (v, cyc) = self.alu_rl(self.mem_read(hl));
+                self.mem_write(hl, v); cyc + 8 }
+            0x17 => { let cyc; (self.reg.a, cyc) = self.alu_rl(self.reg.a); cyc }
+            // rr r
+            0x18 => { let cyc; (self.reg.b, cyc) = self.alu_rr(self.reg.b); cyc }
+            0x19 => { let cyc; (self.reg.c, cyc) = self.alu_rr(self.reg.c); cyc }
+            0x1A => { let cyc; (self.reg.d, cyc) = self.alu_rr(self.reg.d); cyc }
+            0x1B => { let cyc; (self.reg.e, cyc) = self.alu_rr(self.reg.e); cyc }
+            0x1C => { let cyc; (self.reg.h, cyc) = self.alu_rr(self.reg.h); cyc }
+            0x1D => { let cyc; (self.reg.l, cyc) = self.alu_rr(self.reg.l); cyc }
+            0x1E => { let hl = self.reg.hl(); let (v, cyc) = self.alu_rr(self.mem_read(hl));
+                self.mem_write(hl, v); cyc + 8 }
+            0x1F => { let cyc; (self.reg.a, cyc) = self.alu_rr(self.reg.a); cyc }
+
             // bit 0,r
             0x40 => self.alu_bit(0, self.reg.b),
             0x41 => self.alu_bit(0, self.reg.c),
@@ -810,6 +882,126 @@ impl Cpu {
         self.reg.f.set(CpuFlag::C, a < n);
 
         4
+    }
+
+    /// Rotate `r` bits to the left. \
+    /// Returns the new `r` value and the instruction cycles.
+    /// ```not_rust
+    ///  carry     r             carry    r << 1
+    ///             ------->-------
+    ///            |               |      
+    ///   -      0b1010_1010       1     0b0101_0101
+    ///                            |               |
+    ///                             ------->-------
+    /// ```
+    ///
+    /// # Flags affected
+    ///
+    /// Z: Set if result is 0
+    /// N: 0
+    /// H: 0
+    /// C: Old `r` value's bit 7
+    fn alu_rlc(&mut self, r: u8) -> (u8, u8) {
+        let c = r & 0x80 == 0x80;
+
+        let result = (r << 1) | c as u8;
+
+        self.reg.f.set(CpuFlag::Z, result == 0);
+        self.reg.f.remove(CpuFlag::N);
+        self.reg.f.remove(CpuFlag::H);
+        self.reg.f.set(CpuFlag::C, c);
+
+        (result, 8)
+    }
+
+    /// Rotate `r` bits to the right. \
+    /// Returns the new `r` value and the instruction cycles.
+    /// ```not_rust
+    ///  carry     r             carry    r >> 1
+    ///                     --->---
+    ///                    |       |      
+    ///   -      0b1010_1010       0     0b0101_0100
+    ///                            |               |
+    ///                             ------->-------
+    /// ```
+    ///
+    /// # Flags affected
+    ///
+    /// Z: Set if result is 0
+    /// N: 0
+    /// H: 0
+    /// C: Old `r` value's bit 0
+    fn alu_rrc(&mut self, r: u8) -> (u8, u8) {
+        let c = r & 1;
+
+        let result = (c << 7) | (r >> 1);
+
+        self.reg.f.set(CpuFlag::Z, result == 0);
+        self.reg.f.remove(CpuFlag::N);
+        self.reg.f.remove(CpuFlag::H);
+        self.reg.f.set(CpuFlag::C, c == 1);
+
+        (result, 8)
+    }
+
+    /// Rotate `r` bits to the left through Carry. \
+    /// Returns the new `r` value and the instruction cycles.
+    /// ```not_rust
+    ///  carry     r             carry     r << 1
+    ///             ------->-------
+    ///            |               |
+    ///   1      0b1010_1010       1     0b0101_0101
+    ///   |                                        |
+    ///    ---------------------->-----------------
+    /// ```
+    ///
+    /// # Flags affected
+    ///
+    /// Z: Set if result is 0
+    /// N: 0
+    /// H: 0
+    /// C: Old `r` value's bit 7
+    fn alu_rl(&mut self, r: u8) -> (u8, u8) {
+        let c = r & 0x80 == 0x80;
+
+        let result = (r << 1) | self.reg.f.contains(CpuFlag::C) as u8;
+
+        self.reg.f.set(CpuFlag::Z, result == 0);
+        self.reg.f.remove(CpuFlag::N);
+        self.reg.f.remove(CpuFlag::H);
+        self.reg.f.set(CpuFlag::C, c);
+
+        (result, 8)
+    }
+
+    /// Rotate `r` bits to the right through Carry. \
+    /// Returns the new `r` value and the instruction cycles.
+    /// ```not_rust
+    ///  carry     r             carry     r >> 1
+    ///                     ---->---
+    ///                    |        |
+    ///   0      0b1010_1010        0     0b0101_0101
+    ///   |                                 |
+    ///    ----------------------->---------
+    /// ```
+    ///
+    /// # Flags affected
+    ///
+    /// Z: Set if result is 0
+    /// N: 0
+    /// H: 0
+    /// C: Old `r` value's bit 0
+    fn alu_rr(&mut self, r: u8) -> (u8, u8) {
+        let c = r & 1 == 1;
+
+        let result = ((self.reg.f.contains(CpuFlag::C) as u8) << 7) | (r >> 1);
+
+        self.reg.f.set(CpuFlag::Z, result == 0);
+        self.reg.f.remove(CpuFlag::N);
+        self.reg.f.remove(CpuFlag::H);
+        self.reg.f.set(CpuFlag::C, c);
+
+        (result, 8)
     }
 
     /// Test bit `b` in register `r`. \

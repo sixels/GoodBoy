@@ -47,6 +47,12 @@ impl Registers {
     pub fn set_hl(&mut self, value: u16) {
         [self.h, self.l] = value.to_be_bytes();
     }
+    #[inline(always)]
+    pub fn set_af(&mut self, value: u16) {
+        let bytes = value.to_be_bytes();
+        self.a = bytes[0];
+        self.f = CpuFlag::from_bits(bytes[1]).unwrap()
+    }
 
     pub fn hli(&mut self) -> u16 {
         let hl = self.hl();
