@@ -2,7 +2,7 @@ use bitflags::bitflags;
 
 bitflags! {
     #[derive(Default)]
-    pub struct CpuFlags: u8 {
+    pub struct CpuFlag: u8 {
         // Zero Flag
         const Z = 1 << 7;
         // Add/Subtract Flag

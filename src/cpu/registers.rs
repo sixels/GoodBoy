@@ -1,11 +1,11 @@
-use super::flags::CpuFlags;
+use super::flags::CpuFlag;
 
 #[derive(Debug, Default)]
 pub struct Registers {
     /// Accumulator
     pub a: u8,
     /// Flags
-    pub f: CpuFlags,
+    pub f: CpuFlag,
     /// BC
     pub b: u8,
     pub c: u8,
@@ -29,6 +29,10 @@ impl Registers {
     #[inline(always)]
     pub const fn hl(&self) -> u16 {
         u16::from_be_bytes([self.h, self.l])
+    }
+    #[inline(always)]
+    pub const fn af(&self) -> u16 {
+        u16::from_be_bytes([self.a, self.f.bits()])
     }
 
     #[inline(always)]
