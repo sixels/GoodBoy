@@ -72,14 +72,10 @@ impl Cpu {
     {
         loop {
             callback(self);
-            self.tick();
-        }
-    }
 
-    pub fn tick(&mut self) -> u8 {
-        let opcode = self.fetch_and_decode();
-        self.exec_instruction(opcode).unwrap();
-        opcode.cycles
+            let opcode = self.fetch_and_decode();
+            self.exec_instruction(opcode).unwrap();
+        }
     }
 
     /// Get the next byte and increment the PC by 1.
@@ -121,7 +117,9 @@ impl Cpu {
     }
 
     // TODO: rename to exec_opcode
-    pub fn exec_instruction<'a>(&mut self, opcode: &Opcode<'a>) -> Result<(), String> {
+    pub fn exec_instruction<'a>(&mut self, opcode: &Opcode<'a>) -> Result<u8, String> {
+        let mut cycles = opcode.cycles;
+
         match opcode.instruction {
             Instruction::NOP => (),
 
@@ -167,7 +165,6 @@ impl Cpu {
             Instruction::INC16(target) => {
                 let value = self
                     .get_operand_value(&target, false)
-                    .unwrap()
                     .unwrap_u16()
                     .wrapping_add(1);
                 self.set_operand_value(&target, value);
@@ -175,7 +172,6 @@ impl Cpu {
             Instruction::DEC16(target) => {
                 let value = self
                     .get_operand_value(&target, false)
-                    .unwrap()
                     .unwrap_u16()
                     .wrapping_sub(1);
                 self.set_operand_value(&target, value);
@@ -206,7 +202,7 @@ impl Cpu {
             Instruction::RR(target) => self.alu_rr(&target),
 
             Instruction::ADDHL(source) => {
-                let value = self.get_operand_value(&source, false).unwrap().unwrap_u16();
+                let value = self.get_operand_value(&source, false).unwrap_u16();
                 self.alu16_add(value);
             }
 
@@ -221,7 +217,7 @@ impl Cpu {
                 self.set_operand_value(&target, value)
             }
             Instruction::LDRR(target, source) => {
-                let value = self.get_operand_value(&source, true).unwrap().unwrap_u8();
+                let value = self.get_operand_value(&source, true).unwrap_u8();
                 self.set_operand_value(&target, value)
             }
 
@@ -271,7 +267,7 @@ impl Cpu {
                 let value = if source == Operand::IM8 {
                     self.fetch_byte()
                 } else {
-                    self.get_operand_value(&source, true).unwrap().unwrap_u8()
+                    self.get_operand_value(&source, true).unwrap_u8()
                 };
                 self.alu_add(value, false);
             }
@@ -280,7 +276,7 @@ impl Cpu {
                 let value = if source == Operand::IM8 {
                     self.fetch_byte()
                 } else {
-                    self.get_operand_value(&source, true).unwrap().unwrap_u8()
+                    self.get_operand_value(&source, true).unwrap_u8()
                 };
                 self.alu_add(value, true);
             }
@@ -288,7 +284,7 @@ impl Cpu {
                 let value = if source == Operand::IM8 {
                     self.fetch_byte()
                 } else {
-                    self.get_operand_value(&source, true).unwrap().unwrap_u8()
+                    self.get_operand_value(&source, true).unwrap_u8()
                 };
                 self.alu_sub(value, false);
             }
@@ -296,7 +292,7 @@ impl Cpu {
                 let value = if source == Operand::IM8 {
                     self.fetch_byte()
                 } else {
-                    self.get_operand_value(&source, true).unwrap().unwrap_u8()
+                    self.get_operand_value(&source, true).unwrap_u8()
                 };
                 self.alu_sub(value, true);
             }
@@ -304,7 +300,7 @@ impl Cpu {
                 let value = if source == Operand::IM8 {
                     self.fetch_byte()
                 } else {
-                    self.get_operand_value(&source, true).unwrap().unwrap_u8()
+                    self.get_operand_value(&source, true).unwrap_u8()
                 };
                 self.alu_and(value);
             }
@@ -312,7 +308,7 @@ impl Cpu {
                 let value = if source == Operand::IM8 {
                     self.fetch_byte()
                 } else {
-                    self.get_operand_value(&source, true).unwrap().unwrap_u8()
+                    self.get_operand_value(&source, true).unwrap_u8()
                 };
                 self.alu_xor(value);
             }
@@ -320,7 +316,7 @@ impl Cpu {
                 let value = if source == Operand::IM8 {
                     self.fetch_byte()
                 } else {
-                    self.get_operand_value(&source, true).unwrap().unwrap_u8()
+                    self.get_operand_value(&source, true).unwrap_u8()
                 };
                 self.alu_or(value);
             }
@@ -328,7 +324,7 @@ impl Cpu {
                 let value = if source == Operand::IM8 {
                     self.fetch_byte()
                 } else {
-                    self.get_operand_value(&source, true).unwrap().unwrap_u8()
+                    self.get_operand_value(&source, true).unwrap_u8()
                 };
                 self.alu_cp(value);
             }
@@ -338,28 +334,28 @@ impl Cpu {
             }
             Instruction::JR(Some(condition)) => {
                 let cc = self.get_condition_value(&condition);
-                self.branch_jr(cc);
+                cycles = self.branch_jr(cc);
             }
             Instruction::RET(None) => {
                 self.branch_ret(true);
             }
             Instruction::RET(Some(condition)) => {
                 let cc = self.get_condition_value(&condition);
-                self.branch_ret(cc);
+                cycles = self.branch_ret(cc);
             }
             Instruction::JP(None) => {
                 self.branch_jp(true);
             }
             Instruction::JP(Some(condition)) => {
                 let cc = self.get_condition_value(&condition);
-                self.branch_jp(cc);
+                cycles = self.branch_jp(cc);
             }
             Instruction::CALL(None) => {
                 self.branch_call(true);
             }
             Instruction::CALL(Some(condition)) => {
                 let cc = self.get_condition_value(&condition);
-                self.branch_call(cc);
+                cycles = self.branch_call(cc);
             }
 
             Instruction::JPHL => self.pc = self.regs.hl(),
@@ -369,7 +365,7 @@ impl Cpu {
                 self.set_operand_value(&target, value);
             }
             Instruction::PUSH(target) => {
-                let value = self.get_operand_value(&target, false).unwrap().unwrap_u16();
+                let value = self.get_operand_value(&target, false).unwrap_u16();
                 self.push_stack(value);
             }
 
@@ -387,15 +383,15 @@ impl Cpu {
             Instruction::SRL(target) => self.alu_srl(&target),
 
             Instruction::BIT(b, r) => {
-                let value = self.get_operand_value(&r, true).unwrap().unwrap_u8();
+                let value = self.get_operand_value(&r, true).unwrap_u8();
                 self.alu_bit(b, value);
             }
             Instruction::RES(b, target) => {
-                let value = self.get_operand_value(&target, true).unwrap().unwrap_u8();
+                let value = self.get_operand_value(&target, true).unwrap_u8();
                 self.set_operand_value(&target, value & !(1 << b))
             }
             Instruction::SET(b, target) => {
-                let value = self.get_operand_value(&target, true).unwrap().unwrap_u8();
+                let value = self.get_operand_value(&target, true).unwrap_u8();
                 self.set_operand_value(&target, value | (1 << b))
             }
 
@@ -408,35 +404,35 @@ impl Cpu {
             }
         };
 
-        Ok(())
+        Ok(cycles)
     }
 
-    fn get_operand_value(&self, operand: &Operand, is_u8: bool) -> Option<UnsignedValue> {
-        match operand {
+    fn get_operand_value(&self, operand: &Operand, is_u8: bool) -> UnsignedValue {
+        match (operand, is_u8) {
             // r
-            Operand::A if is_u8 => Some(self.regs.a.into()),
-            Operand::B if is_u8 => Some(self.regs.b.into()),
-            Operand::C if is_u8 => Some(self.regs.c.into()),
-            Operand::D if is_u8 => Some(self.regs.d.into()),
-            Operand::E if is_u8 => Some(self.regs.e.into()),
-            Operand::H if is_u8 => Some(self.regs.h.into()),
-            Operand::L if is_u8 => Some(self.regs.l.into()),
-            Operand::F if is_u8 => Some(self.regs.f.bits().into()),
+            (Operand::A, true) => self.regs.a.into(),
+            (Operand::B, true) => self.regs.b.into(),
+            (Operand::C, true) => self.regs.c.into(),
+            (Operand::D, true) => self.regs.d.into(),
+            (Operand::E, true) => self.regs.e.into(),
+            (Operand::H, true) => self.regs.h.into(),
+            (Operand::L, true) => self.regs.l.into(),
+            (Operand::F, true) => self.regs.f.bits().into(),
 
             // (rr)
-            Operand::AF if is_u8 => Some(self.mem_read(self.regs.af()).into()),
-            Operand::BC if is_u8 => Some(self.mem_read(self.regs.bc()).into()),
-            Operand::DE if is_u8 => Some(self.mem_read(self.regs.de()).into()),
-            Operand::HL if is_u8 => Some(self.mem_read(self.regs.hl()).into()),
-            Operand::SP if is_u8 => Some(self.mem_read(self.sp).into()),
+            (Operand::AF, true) => self.mem_read(self.regs.af()).into(),
+            (Operand::BC, true) => self.mem_read(self.regs.bc()).into(),
+            (Operand::DE, true) => self.mem_read(self.regs.de()).into(),
+            (Operand::HL, true) => self.mem_read(self.regs.hl()).into(),
+            (Operand::SP, true) => self.mem_read(self.sp).into(),
 
             // rr
-            Operand::AF if !is_u8 => Some(self.regs.af().into()),
-            Operand::BC if !is_u8 => Some(self.regs.bc().into()),
-            Operand::DE if !is_u8 => Some(self.regs.de().into()),
-            Operand::HL if !is_u8 => Some(self.regs.hl().into()),
-            Operand::SP if !is_u8 => Some(self.sp.into()),
-            _ => None,
+            (Operand::AF, false) => self.regs.af().into(),
+            (Operand::BC, false) => self.regs.bc().into(),
+            (Operand::DE, false) => self.regs.de().into(),
+            (Operand::HL, false) => self.regs.hl().into(),
+            (Operand::SP, false) => self.sp.into(),
+            _ => panic!("Invalid Operand: {:?}", operand),
         }
     }
 
@@ -499,12 +495,12 @@ impl Cpu {
     /// Returns the instruction cycles.
     fn branch_jr(&mut self, condition: bool) -> u8 {
         let offset = self.fetch_byte() as i8;
-        condition
-            .then(|| {
-                self.pc = self.pc.wrapping_add(offset as u16);
-                12
-            })
-            .unwrap_or(8)
+        if condition {
+            self.pc = self.pc.wrapping_add(offset as u16);
+            12
+        } else {
+            8
+        }
     }
 
     /// If `condition` is true, jump to the offset denoted by the next word (PC = u16),
@@ -512,40 +508,38 @@ impl Cpu {
     /// Returns the instruction cycles.
     fn branch_jp(&mut self, condition: bool) -> u8 {
         let offset = self.fetch_word();
-        condition
-            .then(|| {
-                self.pc = offset;
-                16
-            })
-            .unwrap_or(12)
+        if condition {
+            self.pc = offset;
+            16
+        } else {
+            12
+        }
     }
 
     /// If `condition` is true, save the address of the next instruction onto the stack,
     /// then jump to the address denoted by the next word, otherwise, do nothing. \
     /// Returns the instruction cycles.
     fn branch_call(&mut self, condition: bool) -> u8 {
-        condition
-            .then(|| {
-                self.push_stack(self.pc + 2);
-                self.branch_jp(true);
-                24
-            })
-            .unwrap_or_else(|| {
-                // skip the next word
-                self.pc += 2;
-                12
-            })
+        if condition {
+            self.push_stack(self.pc + 2);
+            self.branch_jp(true);
+            24
+        } else {
+            // skip the next word
+            self.pc += 2;
+            12
+        }
     }
 
     /// If `condition` is true, set the PC to the last address on the stack, otherwise, do nothing. \
     /// Returns the instruction cycles.
     fn branch_ret(&mut self, condition: bool) -> u8 {
-        condition
-            .then(|| {
-                self.pc = self.pop_stack();
-                16
-            })
-            .unwrap_or(8)
+        if condition {
+            self.pc = self.pop_stack();
+            16
+        } else {
+            8
+        }
     }
 
     // --- ALU ---
@@ -558,7 +552,7 @@ impl Cpu {
     /// N: 0 \
     /// H: Set if carry from bit 3
     fn alu_inc(&mut self, target: &Operand) {
-        let r = self.get_operand_value(target, true).unwrap().unwrap_u8();
+        let r = self.get_operand_value(target, true).unwrap_u8();
 
         let result = r.wrapping_add(1);
 
@@ -577,7 +571,7 @@ impl Cpu {
     /// N: 0 \
     /// H: Set if carry from bit 3
     fn alu_dec(&mut self, target: &Operand) {
-        let r = self.get_operand_value(target, true).unwrap().unwrap_u8();
+        let r = self.get_operand_value(target, true).unwrap_u8();
 
         let result = r.wrapping_sub(1);
 
@@ -769,7 +763,7 @@ impl Cpu {
     /// H: 0
     /// C: Old `r` value's bit 7
     fn alu_rlc(&mut self, target: &Operand) {
-        let r = self.get_operand_value(target, true).unwrap().unwrap_u8();
+        let r = self.get_operand_value(target, true).unwrap_u8();
         let c = r >> 7;
 
         let result = (r << 1) | c;
@@ -799,7 +793,7 @@ impl Cpu {
     /// H: 0
     /// C: Old `r` value's bit 0
     fn alu_rrc(&mut self, target: &Operand) {
-        let r = self.get_operand_value(target, true).unwrap().unwrap_u8();
+        let r = self.get_operand_value(target, true).unwrap_u8();
         let c = r & 1;
 
         let result = (c << 7) | (r >> 1);
@@ -829,7 +823,7 @@ impl Cpu {
     /// H: 0
     /// C: Old `r` value's bit 7
     fn alu_rl(&mut self, target: &Operand) {
-        let r = self.get_operand_value(target, true).unwrap().unwrap_u8();
+        let r = self.get_operand_value(target, true).unwrap_u8();
         let c = r & 0x80 == 0x80;
 
         let result = (r << 1) | self.regs.f.contains(Flags::C) as u8;
@@ -859,7 +853,7 @@ impl Cpu {
     /// H: 0
     /// C: Old `r` value's bit 0
     fn alu_rr(&mut self, target: &Operand) {
-        let r = self.get_operand_value(target, true).unwrap().unwrap_u8();
+        let r = self.get_operand_value(target, true).unwrap_u8();
         let c = r & 1 == 1;
 
         let result = ((self.regs.f.contains(Flags::C) as u8) << 7) | (r >> 1);
@@ -890,7 +884,7 @@ impl Cpu {
     }
 
     fn alu_sla(&mut self, target: &Operand) {
-        let value = self.get_operand_value(target, true).unwrap().unwrap_u8();
+        let value = self.get_operand_value(target, true).unwrap_u8();
 
         let result = value << 1;
         self.regs.f.set(Flags::Z, result == 0);
@@ -900,7 +894,7 @@ impl Cpu {
         self.set_operand_value(target, result)
     }
     fn alu_sra(&mut self, target: &Operand) {
-        let value = self.get_operand_value(target, true).unwrap().unwrap_u8();
+        let value = self.get_operand_value(target, true).unwrap_u8();
 
         let result = value >> 1 | (value & 0x80);
         self.regs.f.set(Flags::Z, result == 0);
@@ -911,7 +905,7 @@ impl Cpu {
     }
 
     fn alu_srl(&mut self, target: &Operand) {
-        let value = self.get_operand_value(target, true).unwrap().unwrap_u8();
+        let value = self.get_operand_value(target, true).unwrap_u8();
 
         let result = value >> 1;
         self.regs.f.set(Flags::Z, result == 0);
@@ -922,7 +916,7 @@ impl Cpu {
     }
 
     fn alu_swap(&mut self, target: &Operand) {
-        let value = self.get_operand_value(target, true).unwrap().unwrap_u8();
+        let value = self.get_operand_value(target, true).unwrap_u8();
 
         let result = (value >> 4) | (value << 4);
         self.regs.f.set(Flags::Z, result == 0);
