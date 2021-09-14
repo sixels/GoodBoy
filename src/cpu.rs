@@ -1,12 +1,16 @@
 pub mod instruction;
 pub mod register;
 
-use std::{fmt::Debug, io::Write};
+use std::fmt::Debug;
 
-use crate::{cpu::instruction::Operand, memory::MemoryAccess, utils::UnsignedValue};
+use crate::{
+    bus::{Bus, InterruptFlags},
+    cpu::instruction::Operand,
+    memory::MemoryAccess,
+    utils::UnsignedValue,
+};
+use instruction::{Condition, Instruction, Opcode, CB_OPCODE_MAP, OPCODE_MAP};
 use register::{Flags, Registers};
-
-use self::instruction::{Condition, Instruction, Opcode, CB_OPCODE_MAP, OPCODE_MAP};
 
 pub struct Cpu {
     // CPU registers
@@ -18,64 +22,77 @@ pub struct Cpu {
     /// Stack Pointer
     pub sp: u16,
 
-    /// Memory buffer
-    memory: Box<[u8; 0x10000]>,
+    /// System bus
+    bus: Bus,
+
+    ime: bool,
+    set_ei: u8,
+    set_di: u8,
+
+    halted: bool,
 }
 
 impl Cpu {
-    pub fn new(buffer: &[u8]) -> Self {
-        let mut cpu = Self::default();
-        cpu.load(&buffer[..=0x7FFF], 0x0000);
+    pub fn new(bus: Bus) -> Self {
+        Self {
+            bus,
 
-        cpu
-    }
+            sp: 0xFFFE,
+            pc: 0x0100,
 
-    /// Create a new CPU with the given boot rom
-    pub fn with_bootstrap(buffer: &[u8]) -> Self {
-        let mut cpu = Self {
-            ..Default::default()
-        };
+            regs: Default::default(),
 
-        let start_offset = 0x00;
-        cpu.load(&buffer[0x00..=0xFF], start_offset);
+            ime: false,
+            set_ei: 0,
+            set_di: 0,
 
-        cpu
-    }
-
-    pub fn decode(byte: u8, prefixed: bool) -> Option<&'static Opcode<'static>> {
-        if prefixed {
-            CB_OPCODE_MAP.get(&byte).copied()
-        } else {
-            OPCODE_MAP.get(&byte).copied()
+            halted: false,
         }
     }
 
-    /// Load a slice into the ROM
-    pub fn load(&mut self, slice: &[u8], start_offset: usize) {
-        self.memory[start_offset..slice.len() + start_offset].copy_from_slice(slice);
-    }
-
+    #[allow(unused_mut)]
     pub fn run(&mut self) -> ! {
-        self.run_callback(|cpu| {
-            if cpu.mem_read(0xFF02) == 0x81 {
-                let ch = char::from(cpu.mem_read(0xFF01));
-                eprint!("{:}", if ch != '\n' { ch } else { ' ' });
-                std::io::stderr().flush().unwrap();
-                cpu.mem_write(0xFF02, 0x00);
+        let mut step = false;
+        self.run_callback(move |cpu| {
+            // if cpu.mem_read(cpu.pc) == 0xFB {
+            //     step = true;
+            // }
+
+            if step {
+                println!("{:?}", cpu);
+                std::io::stdin().read_line(&mut String::new()).unwrap();
             }
         })
     }
 
-    pub fn run_callback<FN>(&mut self, callback: FN) -> !
+    pub fn run_callback<FN>(&mut self, mut callback: FN) -> !
     where
-        FN: Fn(&mut Self),
+        FN: FnMut(&mut Self),
     {
         loop {
             callback(self);
-
-            let opcode = self.fetch_and_decode();
-            self.exec_instruction(opcode).unwrap();
+            let clocks = self.tick().unwrap();
+            self.bus.tick(clocks);
         }
+    }
+
+    pub fn tick(&mut self) -> Result<u8, Box<dyn std::error::Error>> {
+        // Update the interrupt state
+        self.update_ime();
+        match self.handle_interruption() {
+            0 => (),
+            n => return Ok(n),
+        };
+
+        Ok(if self.halted {
+            4
+        } else {
+            // Run the instruction
+            let opcode = self.fetch_and_decode();
+            let cycles = self.exec_opcode(opcode)?;
+
+            cycles
+        })
     }
 
     /// Get the next byte and increment the PC by 1.
@@ -92,6 +109,20 @@ impl Cpu {
         word
     }
 
+    /// Push a word to the stack
+    fn push_stack(&mut self, value: u16) {
+        self.sp -= 2;
+        self.mem_write_word(self.sp, value)
+    }
+
+    /// Pop a word from the stack
+    fn pop_stack(&mut self) -> u16 {
+        let w = self.mem_read_word(self.sp);
+        self.sp += 2;
+        w
+    }
+
+    /// Decode the next byte
     pub fn fetch_and_decode(&mut self) -> &'static Opcode<'static> {
         let byte = self.fetch_byte();
 
@@ -105,19 +136,60 @@ impl Cpu {
         opcode.unwrap_or_else(|| panic!("Unknown opcode: 0x{:02X}", byte))
     }
 
-    fn push_stack(&mut self, value: u16) {
-        self.sp -= 2;
-        self.mem_write_word(self.sp, value)
+    /// Decode the given byte
+    pub fn decode(byte: u8, prefixed: bool) -> Option<&'static Opcode<'static>> {
+        if !prefixed {
+            OPCODE_MAP.get(&byte).copied()
+        } else {
+            CB_OPCODE_MAP.get(&byte).copied()
+        }
     }
 
-    fn pop_stack(&mut self) -> u16 {
-        let w = self.mem_read_word(self.sp);
-        self.sp += 2;
-        w
+    fn update_ime(&mut self) {
+        if self.set_ei == 1 {
+            self.ime = true;
+        }
+        if self.set_di == 1 {
+            self.ime = false;
+        }
+
+        self.set_ei = self.set_ei.saturating_sub(1);
+        self.set_di = self.set_di.saturating_sub(1);
     }
 
-    // TODO: rename to exec_opcode
-    pub fn exec_instruction<'a>(&mut self, opcode: &Opcode<'a>) -> Result<u8, String> {
+    /// Handle interruptions
+    fn handle_interruption(&mut self) -> u8 {
+        if self.ime == false && self.halted == false {
+            return 0;
+        }
+
+        let interruptions = (self.bus.ienable & self.bus.iflag).bits();
+        if interruptions == 0 {
+            return 0;
+        }
+
+        self.halted = false;
+        if self.ime == false {
+            return 0;
+        }
+
+        // Get the interruption with higher precedence
+        let triggered = interruptions.trailing_zeros();
+        assert!(triggered < 5);
+        let triggered = triggered as u8;
+
+        let triggered_interruption = InterruptFlags::from_bits_truncate(1 << triggered);
+
+        // Remove and handle the interruption
+        self.bus.iflag.remove(triggered_interruption);
+        self.push_stack(self.pc);
+        self.pc = 0x40 | (triggered << 3) as u16;
+
+        self.ime = false;
+        20
+    }
+
+    pub fn exec_opcode<'a>(&mut self, opcode: &Opcode<'a>) -> Result<u8, String> {
         let mut cycles = opcode.cycles;
 
         match opcode.instruction {
@@ -369,8 +441,20 @@ impl Cpu {
                 self.push_stack(value);
             }
 
-            Instruction::DI => (),
-            Instruction::EI => (),
+            Instruction::DI => self.set_di = 2,
+            Instruction::EI => self.set_ei = 2,
+            Instruction::RETI => {
+                self.pc = self.pop_stack();
+                self.set_ei = 1;
+            }
+
+            Instruction::HALT => self.halted = true,
+
+            Instruction::RST(addr) => {
+                self.push_stack(self.pc);
+                self.pc = addr
+            }
+
 
             Instruction::ADDSP => self.alu16_add_imm(&Operand::SP, self.sp),
             Instruction::ADDHLSP => self.alu16_add_imm(&Operand::HL, self.sp),
@@ -926,53 +1010,6 @@ impl Cpu {
     }
 }
 
-impl Default for Cpu {
-    fn default() -> Self {
-        let regs = Registers::default();
-
-        let mut memory = Box::new([0; 0x10000]);
-
-        memory[0xFF05] = 0x00; // TIMA
-        memory[0xFF06] = 0x00; // TMA
-        memory[0xFF07] = 0x00; // TAC
-        memory[0xFF10] = 0x80; // NR10
-        memory[0xFF11] = 0xBF; // NR11
-        memory[0xFF12] = 0xF3; // NR12
-        memory[0xFF14] = 0xBF; // NR14
-        memory[0xFF16] = 0x3F; // NR21
-        memory[0xFF17] = 0x00; // NR22
-        memory[0xFF19] = 0xBF; // NR24
-        memory[0xFF1A] = 0x7F; // NR30
-        memory[0xFF1B] = 0xFF; // NR31
-        memory[0xFF1C] = 0x9F; // NR32
-        memory[0xFF1E] = 0xBF; // NR33
-        memory[0xFF20] = 0xFF; // NR41
-        memory[0xFF21] = 0x00; // NR42
-        memory[0xFF22] = 0x00; // NR43
-        memory[0xFF23] = 0xBF; // NR44
-        memory[0xFF24] = 0x77; // NR50
-        memory[0xFF25] = 0xF3; // NR51
-        memory[0xFF26] = 0xF1; // NR52
-        memory[0xFF40] = 0x91; // LCDC
-        memory[0xFF42] = 0x00; // SCY
-        memory[0xFF43] = 0x00; // SCX
-        memory[0xFF45] = 0x00; // LYC
-        memory[0xFF47] = 0xFC; // BGP
-        memory[0xFF48] = 0xFF; // OBP0
-        memory[0xFF49] = 0xFF; // OBP1
-        memory[0xFF4A] = 0x00; // WY
-        memory[0xFF4B] = 0x00; // WX
-        memory[0xFFFF] = 0x00; // IE
-
-        Self {
-            regs,
-            sp: 0xFFFE,
-            pc: 0x0100,
-            memory,
-        }
-    }
-}
-
 impl Debug for Cpu {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = format!(
@@ -989,10 +1026,10 @@ impl Debug for Cpu {
 
 impl MemoryAccess for Cpu {
     fn mem_read(&self, addr: u16) -> u8 {
-        self.memory[addr as usize]
+        self.bus.mem_read(addr)
     }
     fn mem_write(&mut self, addr: u16, value: u8) {
-        self.memory[addr as usize] = value
+        self.bus.mem_write(addr, value);
     }
 }
 
@@ -1002,12 +1039,16 @@ mod tests {
 
     #[test]
     fn fetch_opcodes() {
-        let mut cpu = Cpu::default();
+        // 0x0000: 00 00 00 00 00 ...
+        // ...
+        // 0x0100: 01 02 03 04 05 ...
+        let buffer = std::iter::repeat(0)
+            .take(0x0100) // CPU pc starts at position 0x100
+            .chain(0x01..=0x06)
+            .collect::<Vec<u8>>();
+        let bus = Bus::new(&buffer);
 
-        // 0x0000: 0x01 0x02 0x03 0x04 0x05 ...
-        let buffer = (1..10).collect::<Vec<u8>>();
-
-        cpu.load(&buffer, 0);
+        let mut cpu = Cpu::new(bus);
 
         assert_eq!(cpu.fetch_byte(), 0x01);
         assert_eq!(cpu.fetch_byte(), 0x02);

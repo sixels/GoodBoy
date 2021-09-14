@@ -1,15 +1,9 @@
 #![feature(destructuring_assignment)]
 #![feature(never_type)]
+#![feature(box_syntax)]
 
-// pub mod bus;
-#[allow(dead_code)]
 pub mod cpu;
 pub mod memory;
 pub mod utils;
-
-#[derive(Debug)]
-pub enum Either<L,R> {
-    Left(L),
-    Right(R),
-}
-
+pub mod bus;
+pub mod io;

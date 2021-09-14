@@ -440,6 +440,16 @@ lazy_static::lazy_static! {
 
         Opcode::new(0xF9, 1, 8, Instruction::LDSPHL, "LD SP,HL"),
 
+        Opcode::new(0xC7, 1, 16, Instruction::RST(0x00), "RST 0x00"),
+        Opcode::new(0xD7, 1, 16, Instruction::RST(0x10), "RST 0x10"),
+        Opcode::new(0xE7, 1, 16, Instruction::RST(0x20), "RST 0x20"),
+        Opcode::new(0xF7, 1, 16, Instruction::RST(0x30), "RST 0x30"),
+        Opcode::new(0xCF, 1, 16, Instruction::RST(0x08), "RST 0x08"),
+        Opcode::new(0xDF, 1, 16, Instruction::RST(0x18), "RST 0x18"),
+        Opcode::new(0xEF, 1, 16, Instruction::RST(0x28), "RST 0x28"),
+        Opcode::new(0xFF, 1, 16, Instruction::RST(0x38), "RST 0x38"),
+        
+
         // PREFIXED
         Opcode::new(0xCB, 1, 0, Instruction::CB, "0xCB"),
 

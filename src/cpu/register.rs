@@ -1,6 +1,4 @@
-use bitflags::bitflags;
-
-bitflags! {
+bitflags::bitflags! {
     #[derive(Default)]
     pub struct Flags: u8 {
         // Zero flag
