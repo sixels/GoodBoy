@@ -1,6 +1,9 @@
 #![allow(dead_code)]
 
+use std::iter;
+
 use crate::{
+    gpu::Gpu,
     io::{Serial, Timer},
     memory::MemoryAccess,
 };
@@ -34,7 +37,7 @@ pub struct Bus {
     vram: Box<[u8; 0x2000]>,
     /// Sprite information table \
     /// 0xFE00 ..= 0xFE9F
-    oam: [u8; 0x100],
+    oam: [u8; 0xA0],
 
     /// Work RAM \
     /// 0xC000 ..= 0xCFFF -> WRAM0 \
@@ -45,9 +48,8 @@ pub struct Bus {
     /// 0xFF80 ..= 0xFFFE
     zram: [u8; 0x7F],
 
-    /// I/O Registers \
-    /// 0xFF00 ..= 0xFF7F
-    io_registers: [u8; 0x80],
+    /// GPU
+    pub gpu: Gpu,
 
     /// Timer \
     /// 0xFF04 -> Divider Register (DIV) \
@@ -61,6 +63,10 @@ pub struct Bus {
     /// 0xFF02 -> Transfer Control (SC)
     serial: Serial,
 
+    /// Other I/O Registers \
+    /// 0xFF00 ..= 0xFF7F
+    io_registers: [u8; 0x80],
+
     /// Interrupt Flag (IF) \
     /// 0xFF0F
     pub iflag: InterruptFlags,
@@ -71,11 +77,10 @@ pub struct Bus {
 
 impl Bus {
     pub fn new(rom: &[u8]) -> Bus {
-        // TODO: Initialize the WRAM with the right MBC size
-        let wram = std::iter::repeat(0).take(0x2000).collect();
+        // TODO: Initialize the WRAM with the size specified by the cartridge
+        let wram = iter::repeat(0).take(0x2000).collect();
 
         let mut rom_buffer = box [0; 0x8000];
-
         rom_buffer[..rom.len()].copy_from_slice(rom);
 
         let mut bus = Bus {
@@ -121,46 +126,33 @@ impl Bus {
         bus
     }
 
-    pub fn tick(&mut self, clocks: u8) {
-        self.timer.tick(clocks);
+    /// Ticks the IO devices
+    pub fn tick(&mut self, clocks: u8) -> u8 {
+        // update the timer
+        self.timer.sync(clocks);
         if self.timer.interrupt {
             self.iflag.insert(InterruptFlags::TIMER);
             self.timer.interrupt = false;
         }
 
+        // update the gpu
+        self.gpu.sync(clocks);
+        if self.gpu.interrupt_vblank {
+            self.iflag.insert(InterruptFlags::VBLANK);
+            self.gpu.interrupt_vblank = false;
+        }
+        if self.gpu.interrupt_lcd {
+            self.iflag.insert(InterruptFlags::LCD);
+            self.gpu.interrupt_lcd = false;
+        }
+
+        // update the serial
         if self.serial.interrupt {
             self.iflag.insert(InterruptFlags::SERIAL);
             self.serial.interrupt = false;
         }
-    }
-}
 
-impl Default for Bus {
-    fn default() -> Bus {
-        let rom_buffer = box [0; 0x8000];
-        let sram = box [0; 0x2000];
-
-        let vram = box [0; 0x2000];
-        let oam = [0; 0x100];
-
-        let wram = Vec::new();
-        let zram = [0; 0x7F];
-
-        let io_registers = [0; 0x80];
-
-        Bus {
-            rom_buffer,
-            sram,
-            vram,
-            oam,
-            wram,
-            zram,
-            io_registers,
-            timer: Default::default(),
-            serial: Serial::default(),
-            iflag: Default::default(),
-            ienable: Default::default(),
-        }
+        clocks
     }
 }
 
@@ -169,14 +161,14 @@ impl MemoryAccess for Bus {
         match addr {
             0x0000..=0x7FFF => self.rom_buffer[addr as usize],
 
-            0x8000..=0x9FFF => self.vram[(addr & 0x7FFF) as usize],
+            0x8000..=0x9FFF => self.gpu.mem_read(addr),
 
             0xA000..=0xBFFF => self.sram[(addr & 0x5FFF) as usize],
 
             0xC000..=0xCFFF | 0xE000..=0xEFFF => self.wram[(addr & 0x0FFF) as usize],
             0xD000..=0xDFFF | 0xF000..=0xFDFF => self.wram[(addr & 0x0FFF | 0x1000) as usize],
 
-            0xFE00..=0xFE9F => self.oam[(addr & 0x01FF) as usize],
+            0xFE00..=0xFE9F => self.gpu.mem_read(addr),
 
             0xFEA0..=0xFEFF => 0, // unused
 
@@ -185,7 +177,10 @@ impl MemoryAccess for Bus {
             0xFF01..=0xFF02 => self.serial.mem_read(addr),
             0xFF04..=0xFF07 => self.timer.mem_read(addr),
 
-            0xFF00..=0xFF0E | 0xFF10..=0xFF7F => self.io_registers[(addr & 0xFF) as usize],
+            0xFF46 => 0,
+            0xFF40..=0xFF4B => self.gpu.mem_read(addr),
+
+            0xFF00..=0xFF7F => self.io_registers[(addr & 0xFF) as usize],
 
             0xFF80..=0xFFFE => self.zram[(addr & 0x7F) as usize],
 
@@ -197,7 +192,7 @@ impl MemoryAccess for Bus {
         match addr {
             0x0000..=0x7FFF => self.rom_buffer[addr as usize] = value,
 
-            0x8000..=0x9FFF => self.vram[(addr & 0x7FFF) as usize] = value,
+            0x8000..=0x9FFF => self.gpu.mem_write(addr, value),
 
             0xA000..=0xBFFF => self.sram[(addr & 0x5FFF) as usize] = value,
 
@@ -206,7 +201,7 @@ impl MemoryAccess for Bus {
                 self.wram[(addr & 0x0FFF | 0x1000) as usize] = value
             }
 
-            0xFE00..=0xFE9F => self.oam[(addr & 0x01FF) as usize] = value,
+            0xFE00..=0xFE9F => self.gpu.mem_write(addr, value),
 
             0xFEA0..=0xFEFF => (), // unused
 
@@ -215,11 +210,42 @@ impl MemoryAccess for Bus {
             0xFF01..=0xFF02 => self.serial.mem_write(addr, value),
             0xFF04..=0xFF07 => self.timer.mem_write(addr, value),
 
-            0xFF00..=0xFF0E | 0xFF10..=0xFF7F => self.io_registers[(addr & 0xFF) as usize] = value,
+            0xFF46 => {
+                let base = (value as u16) << 8;
+                for i in 0..0xA0 {
+                    let b = self.mem_read(base + i);
+                    self.mem_write(0xFE00 + i, b);
+                }
+            }
+            0xFF40..=0xFF4B => self.gpu.mem_write(addr, value),
+
+            0xFF00..=0xFF7F => self.io_registers[(addr & 0xFF) as usize] = value,
 
             0xFF80..=0xFFFE => self.zram[(addr & 0x7F) as usize] = value,
 
             0xFFFF => self.ienable = InterruptFlags::from_bits_truncate(value),
+        }
+    }
+}
+
+impl Default for Bus {
+    fn default() -> Bus {
+        Bus {
+            rom_buffer: box [0; 0x8000],
+            sram: box [0; 0x2000],
+            vram: box [0; 0x2000],
+            oam: [0; 0xA0],
+
+            wram: Vec::new(),
+            zram: [0; 0x7F],
+
+            io_registers: [0; 0x80],
+            timer: Timer::default(),
+            serial: Serial::default(),
+            gpu: Gpu::default(),
+
+            iflag: Default::default(),
+            ienable: Default::default(),
         }
     }
 }

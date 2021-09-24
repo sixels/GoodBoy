@@ -12,7 +12,7 @@ pub struct Serial {
 impl Serial {
     fn display(&self) {
         let mut stderr = std::io::stderr();
-        stderr.write(&[self.data]).unwrap();
+        stderr.write_all(&[self.data]).unwrap();
         std::io::stderr().flush().unwrap();
     }
 }

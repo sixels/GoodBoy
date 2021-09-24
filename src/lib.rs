@@ -7,3 +7,5 @@ pub mod memory;
 pub mod utils;
 pub mod bus;
 pub mod io;
+pub mod gpu;
+pub mod vm;

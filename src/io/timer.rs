@@ -1,5 +1,14 @@
 use crate::memory::MemoryAccess;
 
+
+#[derive(Clone, Copy, Debug)]
+pub enum TimerFrequency {
+    X1 = 0b00,
+    X64 = 0b01,
+    X16 = 0b10,
+    X4 = 0b11,
+}
+
 #[derive(Default, Debug)]
 pub struct Timer {
     is_enabled: bool,
@@ -15,7 +24,7 @@ pub struct Timer {
 }
 
 impl Timer {
-    pub fn tick(&mut self, clocks: u8) {
+    pub fn sync(&mut self, clocks: u8) {
         // update the DIV register
         self.div_clocks = {
             let (div_clocks, did_overflow) = self.div_clocks.overflowing_add(clocks);
@@ -59,20 +68,12 @@ impl MemoryAccess for Timer {
             0xFF06 => self.modulo = value,
             0xFF07 => {
                 // println!("{:05b}", value);
-                self.is_enabled = value & 0x4 == 0x4;
+                self.is_enabled = (value >> 2) == 1;
                 self.frequency = (value & 0x3).into();
             }
             _ => panic!("Invalid Timer address"),
         }
     }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum TimerFrequency {
-    X1 = 0b00,
-    X64 = 0b01,
-    X16 = 0b10,
-    X4 = 0b11,
 }
 
 impl TimerFrequency {

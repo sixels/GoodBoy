@@ -23,7 +23,7 @@ pub struct Cpu {
     pub sp: u16,
 
     /// System bus
-    bus: Bus,
+    pub bus: Bus,
 
     ime: bool,
     set_ei: u8,
@@ -51,7 +51,7 @@ impl Cpu {
     }
 
     #[allow(unused_mut)]
-    pub fn run(&mut self) -> ! {
+    pub fn run(&mut self) -> u8 {
         let mut step = false;
         self.run_callback(move |cpu| {
             // if cpu.mem_read(cpu.pc) == 0xFB {
@@ -65,15 +65,13 @@ impl Cpu {
         })
     }
 
-    pub fn run_callback<FN>(&mut self, mut callback: FN) -> !
+    pub fn run_callback<FN>(&mut self, mut callback: FN) -> u8
     where
         FN: FnMut(&mut Self),
     {
-        loop {
-            callback(self);
-            let clocks = self.tick().unwrap();
-            self.bus.tick(clocks);
-        }
+        callback(self);
+        let clocks = self.tick().unwrap();
+        self.bus.tick(clocks)
     }
 
     pub fn tick(&mut self) -> Result<u8, Box<dyn std::error::Error>> {
@@ -89,9 +87,7 @@ impl Cpu {
         } else {
             // Run the instruction
             let opcode = self.fetch_and_decode();
-            let cycles = self.exec_opcode(opcode)?;
-
-            cycles
+            self.exec_opcode(opcode)?
         })
     }
 
@@ -159,7 +155,7 @@ impl Cpu {
 
     /// Handle interruptions
     fn handle_interruption(&mut self) -> u8 {
-        if self.ime == false && self.halted == false {
+        if !self.ime && !self.halted {
             return 0;
         }
 
@@ -169,7 +165,7 @@ impl Cpu {
         }
 
         self.halted = false;
-        if self.ime == false {
+        if !self.ime {
             return 0;
         }
 
@@ -454,7 +450,6 @@ impl Cpu {
                 self.push_stack(self.pc);
                 self.pc = addr
             }
-
 
             Instruction::ADDSP => self.alu16_add_imm(&Operand::SP, self.sp),
             Instruction::ADDHLSP => self.alu16_add_imm(&Operand::HL, self.sp),
