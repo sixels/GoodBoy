@@ -9,7 +9,6 @@ use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalSize},
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
 };
 use winit_input_helper::WinitInputHelper;
 
