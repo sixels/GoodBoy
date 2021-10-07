@@ -26,7 +26,6 @@ fn main() {
     let (window, p_width, p_height, _) = create_window("Good Boy 🐶", &event_loop);
 
     let mut pixels = {
-        let window_size = window.inner_size();
         let surface_texture = SurfaceTexture::new(p_width, p_height, &window);
         PixelsBuilder::new(SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32, surface_texture)
             .enable_vsync(true)
@@ -79,6 +78,7 @@ fn main() {
                 pixels.resize_surface(size.width, size.height);
             }
         }
+
     });
 }
 
@@ -141,7 +141,8 @@ fn vm_loop(vm: VM, screen_sender: SyncSender<Screen>) {
             clocks += vm.tick() as u32;
 
             if vm.check_vblank() {
-                if let Err(TrySendError::Disconnected(..)) = screen_sender.try_send(vm.get_screen()) {
+                if let Err(TrySendError::Disconnected(..)) = screen_sender.try_send(vm.get_screen())
+                {
                     return;
                 }
             }
