@@ -351,25 +351,7 @@ impl Gpu {
         for sprite_nr in 0..40 {
             let i = 39 - sprite_nr;
 
-            // let sprite = self.sprites[i];
-            let mut sprite = Sprite::default();
-            let sprite_addr = 0xFE00 + (i as u16) * 4;
-
-            sprite.y = self.mem_read(sprite_addr + 0) as u16 as i32 - 16;
-            sprite.x = self.mem_read(sprite_addr + 1) as u16 as i32 - 8;
-
-            sprite.tile_number = (self.mem_read(sprite_addr + 2)
-                & if self.lcd_control.sprite_size() == 16 {
-                    0xFE
-                } else {
-                    0xFF
-                }) as u16;
-
-            let flags = self.mem_read(sprite_addr + 3) as usize;
-            sprite.palette = flags & (1 << 4) != 0;
-            sprite.flip_x = flags & (1 << 5) != 0;
-            sprite.flip_y = flags & (1 << 6) != 0;
-            sprite.priority = flags & (1 << 7) != 0;
+            let sprite = self.sprites[i];
 
             let scan_line = self.scan_line as i32;
             let sprite_size = self.lcd_control.sprite_size() as i32;
@@ -443,7 +425,7 @@ impl Gpu {
         let sprite_addr = sprite_addr as usize;
 
         let i = sprite_addr >> 2;
-        let value = self.oam[i];
+        let value = self.oam[sprite_addr];
 
         match sprite_addr & 0x03 {
             0 => self.sprites[i].y = value as u16 as i32 - 16,
