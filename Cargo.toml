@@ -2,6 +2,7 @@
 name = "sixels_gb"
 version = "0.1.0"
 edition = "2018"
+resolver = "2"
 
 [dependencies]
 bitflags = "1.2"
@@ -9,4 +10,5 @@ lazy_static = "1.4"
 log = "0.4"
 env_logger = "0.9"
 winit = "0.25.0"
-pixels = "0.5.0"
+winit_input_helper = "0.10"
+pixels = "0.6.0"
