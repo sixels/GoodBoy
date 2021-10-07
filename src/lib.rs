@@ -9,3 +9,4 @@ pub mod bus;
 pub mod io;
 pub mod gpu;
 pub mod vm;
+pub mod cartridge;
