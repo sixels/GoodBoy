@@ -15,10 +15,10 @@ struct Color {
 }
 
 impl Color {
-    pub const BLACK: Color = Color::rgb(0x203732);
-    pub const DGRAY: Color = Color::rgb(0x38554C);
-    pub const LGRAY: Color = Color::rgb(0x517159);
-    pub const WHITE: Color = Color::rgb(0x888F57);
+    pub const BLACK: Color = Color::rgb(0x221e31);
+    pub const DGRAY: Color = Color::rgb(0x41485d);
+    pub const LGRAY: Color = Color::rgb(0x778e98);
+    pub const WHITE: Color = Color::rgb(0xc5dbd4);
 
     pub const fn rgb(color: u32) -> Self {
         let rgb: [u8; 4] = (color << 8).to_be_bytes();
@@ -105,7 +105,7 @@ impl LCDControl {
     }
 
     #[inline(always)]
-    fn sprite_size(&self) -> u8 {
+    fn sprite_size(&self) -> u32 {
         if !self.contains(Self::SPRITE_SIZE) {
             8
         } else {
@@ -159,10 +159,10 @@ enum GpuMode {
 
 #[derive(Debug, Clone, Copy, Default)]
 struct Sprite {
-    x: i8,
-    y: i8,
+    x: i32,
+    y: i32,
 
-    tile_number: u8,
+    tile_number: u16,
 
     priority: bool,
 
@@ -170,8 +170,6 @@ struct Sprite {
     flip_y: bool,
 
     palette: bool,
-
-    number: u8,
 }
 
 pub struct Gpu {
@@ -207,7 +205,7 @@ pub struct Gpu {
 }
 
 impl Gpu {
-    pub fn sync(&mut self, clocks: u8) {
+    pub fn sync(&mut self, clocks: u32) {
         // Check if lcd is off
         if !self.lcd_control.lcd_on() {
             return;
@@ -334,8 +332,8 @@ impl Gpu {
             let (b1, b2) = (self.mem_read(a0), self.mem_read(a0 + 1));
 
             let xbit = 7 - pixel_x;
-            let colornr = if b1 & (1 << xbit) != 0 { 1 } else { 0 }
-                | if b2 & (1 << xbit) != 0 { 2 } else { 0 };
+            let colornr = (if b1 & (1 << xbit) != 0 { 1 } else { 0 })
+                | (if b2 & (1 << xbit) != 0 { 2 } else { 0 });
 
             self.bg_priorities[x] = if colornr == 0 { 0 } else { 2 };
 
@@ -350,45 +348,60 @@ impl Gpu {
             return;
         }
 
-
         for sprite_nr in 0..40 {
             let i = 39 - sprite_nr;
 
-            let sprite = self.sprites[i];
+            // let sprite = self.sprites[i];
+            let mut sprite = Sprite::default();
+            let sprite_addr = 0xFE00 + (i as u16) * 4;
 
-            let sprite_size = self.lcd_control.sprite_size();
+            sprite.y = self.mem_read(sprite_addr + 0) as u16 as i32 - 16;
+            sprite.x = self.mem_read(sprite_addr + 1) as u16 as i32 - 8;
+
+            sprite.tile_number = (self.mem_read(sprite_addr + 2)
+                & if self.lcd_control.sprite_size() == 16 {
+                    0xFE
+                } else {
+                    0xFF
+                }) as u16;
+
+            let flags = self.mem_read(sprite_addr + 3) as usize;
+            sprite.palette = flags & (1 << 4) != 0;
+            sprite.flip_x = flags & (1 << 5) != 0;
+            sprite.flip_y = flags & (1 << 6) != 0;
+            sprite.priority = flags & (1 << 7) != 0;
+
+            let scan_line = self.scan_line as i32;
+            let sprite_size = self.lcd_control.sprite_size() as i32;
 
             // Check if the sprite is in the screen
-            if (self.scan_line < sprite_size
-                || self.scan_line >= (sprite.y + sprite_size as i8) as u8)
-                || (sprite.x < -7 || sprite.x as i16 >= SCREEN_WIDTH as i16)
+            if (scan_line < sprite.y || scan_line >= (sprite.y + sprite_size))
+                || (sprite.x < -7 || sprite.x >= SCREEN_WIDTH as i32)
             {
                 continue;
             }
 
             let tile_y = if sprite.flip_y {
-                sprite_size as i16 - 1 - (self.scan_line as i16 - sprite.y as i16)
+                sprite_size - 1 - (scan_line - sprite.y)
             } else {
-                self.scan_line as i16 - sprite.y as i16
+                scan_line - sprite.y
             } as u16;
 
-            let tile_nr = sprite.tile_number & 0xFE & (sprite_size == 16) as u8;
-            let tile_addr = 0x8000 + (tile_nr as u16) * 16 + tile_y * 2;
+            let tile_nr = sprite.tile_number & (if sprite_size == 16 { 0xFE } else { 0xFF });
+            let tile_addr = 0x8000u16 + tile_nr * 16 + tile_y * 2;
 
             let (b1, b2) = (self.mem_read(tile_addr), self.mem_read(tile_addr + 1));
 
             'bits: for x in 0..8 {
-                if (sprite.x as i16 + x as i16) < 0
-                    || sprite.x as i16 + x as i16 >= (SCREEN_WIDTH as i16)
-                {
+                if sprite.x + x < 0 || sprite.x + x >= (SCREEN_WIDTH as i32) {
                     continue;
                 }
 
                 let xbit = 1 << (if sprite.flip_x { x } else { 7 - x });
-                let color_nr = if b1 & (1 << xbit) != 0 { 1 } else { 0 }
-                    | if b2 & (1 << xbit) != 0 { 2 } else { 0 };
+                let color_nr =
+                    (if b1 & xbit != 0 { 1 } else { 0 }) | (if b2 & xbit != 0 { 2 } else { 0 });
 
-                // transparent
+                // the pixel is transparent
                 if color_nr == 0 {
                     continue;
                 }
@@ -433,9 +446,9 @@ impl Gpu {
         let value = self.oam[i];
 
         match sprite_addr & 0x03 {
-            0 => self.sprites[i].y = value as i8 - 16,
-            1 => self.sprites[i].x = value as i8 - 8,
-            2 => self.sprites[i].tile_number = value,
+            0 => self.sprites[i].y = value as u16 as i32 - 16,
+            1 => self.sprites[i].x = value as u16 as i32 - 8,
+            2 => self.sprites[i].tile_number = value as u16,
             3 => {
                 self.sprites[i].priority = (value & 0x80) == 0x80;
                 self.sprites[i].flip_y = (value & 0x40) == 0x40;

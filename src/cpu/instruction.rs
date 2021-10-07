@@ -98,7 +98,7 @@ pub struct Opcode<'a> {
     pub code: u8,
     pub instruction: Instruction,
     pub length: usize,
-    pub cycles: u8,
+    pub cycles: u32,
     pub name: &'a str,
     pub prefixed: bool,
 }
@@ -108,7 +108,7 @@ impl<'a> Opcode<'a> {
     pub fn new(
         code: u8,
         len: usize,
-        cycles: u8,
+        cycles: u32,
         instruction: Instruction,
         name: &'a str,
     ) -> Opcode {
@@ -123,7 +123,7 @@ impl<'a> Opcode<'a> {
     }
 
     /// Creates a new prefixed instruction
-    pub fn cb(code: u8, len: usize, cycles: u8, instruction: Instruction, name: &'a str) -> Opcode {
+    pub fn cb(code: u8, len: usize, cycles: u32, instruction: Instruction, name: &'a str) -> Opcode {
         Opcode {
             code,
             instruction,

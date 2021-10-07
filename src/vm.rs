@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{fs, io, path::Path};
 
 use crate::{bus::Bus, cpu::Cpu};
 
@@ -12,14 +12,29 @@ pub struct VM {
 }
 
 impl VM {
-    pub fn new<P: AsRef<Path>>(rom_path: P) -> Self {
-        let rom_buffer = fs::read(rom_path).unwrap();
+    pub fn new<P: AsRef<Path>>(rom_path: P) -> io::Result<Self> {
+        let rom_buffer = fs::read(rom_path)?;
         let bus = Bus::new(&rom_buffer);
 
-        Self { cpu: Cpu::new(bus) }
+        Ok(Self { cpu: Cpu::new(bus) })
     }
 
-    pub fn tick(&mut self) -> u8 {
+    // pub fn new_blank<B, P>(bios_path: B, rom_path: P) -> io::Result<Self>
+    // where
+    //     B: AsRef<Path>,
+    //     P: AsRef<Path>,
+    // {
+    //     let mut bios = fs::read(bios_path)?;
+    //     let rom_buffer = fs::read(rom_path)?;
+
+    //     bios.extend(&rom_buffer[0x100..]);
+
+    //     let bus = Bus::new_blank(&bios);
+
+    //     Ok(Self { cpu: Cpu::new_blank(bus) })
+    // }
+
+    pub fn tick(&mut self) -> u32 {
         self.cpu.run()
     }
 

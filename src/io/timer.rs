@@ -1,51 +1,38 @@
 use crate::memory::MemoryAccess;
 
-
-#[derive(Clone, Copy, Debug)]
-pub enum TimerFrequency {
-    X1 = 0b00,
-    X64 = 0b01,
-    X16 = 0b10,
-    X4 = 0b11,
-}
-
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct Timer {
     is_enabled: bool,
-    frequency: TimerFrequency,
-    pub div: u8,
-    pub counter: u8,
-    pub modulo: u8,
+    step: u32,
+    div: u8,
+    counter: u8,
+    modulo: u8,
 
-    div_clocks: u8,
-    clocks: u16,
+    div_clocks: u32,
+    clocks: u32,
 
     pub interrupt: bool,
 }
 
 impl Timer {
-    pub fn sync(&mut self, clocks: u8) {
-        // update the DIV register
-        self.div_clocks = {
-            let (div_clocks, did_overflow) = self.div_clocks.overflowing_add(clocks);
-            if did_overflow {
-                self.div = self.div.wrapping_add(1);
-            }
-            div_clocks
-        };
+    pub fn sync(&mut self, clocks: u32) {
+        self.div_clocks += clocks;
+        while self.div_clocks >= 256 {
+            self.div = self.div.wrapping_add(1);
+            self.div_clocks -= 256;
+        }
 
         if self.is_enabled {
-            self.clocks += clocks as u16;
+            self.clocks += clocks;
 
-            while self.clocks >= self.frequency.divided() {
-                self.clocks -= self.frequency.divided();
-
+            while self.clocks >= self.step {
                 self.counter = self.counter.wrapping_add(1);
 
                 if self.counter == 0 {
                     self.counter = self.modulo;
                     self.interrupt = true;
                 }
+                self.clocks -= self.step;
             }
         }
     }
@@ -57,7 +44,15 @@ impl MemoryAccess for Timer {
             0xFF04 => self.div,
             0xFF05 => self.counter,
             0xFF06 => self.modulo,
-            0xFF07 => ((self.is_enabled as u8) << 2) | self.frequency.bits(),
+            0xFF07 => {
+                ((self.is_enabled as u8) << 2)
+                    | match self.step {
+                        16 => 1,
+                        64 => 2,
+                        256 => 3,
+                        _ => 0,
+                    }
+            }
             _ => panic!("Invalid Timer address"),
         }
     }
@@ -67,50 +62,30 @@ impl MemoryAccess for Timer {
             0xFF05 => self.counter = value,
             0xFF06 => self.modulo = value,
             0xFF07 => {
-                // println!("{:05b}", value);
                 self.is_enabled = (value >> 2) == 1;
-                self.frequency = (value & 0x3).into();
+                self.step = match value & 0x3 {
+                    1 => 16,
+                    2 => 64,
+                    3 => 256,
+                    _ => 1024,
+                };
             }
             _ => panic!("Invalid Timer address"),
         }
     }
 }
 
-impl TimerFrequency {
-    /// get the CPU frequency divided by the Timer frequency
-    const fn divided(&self) -> u16 {
-        match self {
-            Self::X1 => 1024,
-            Self::X64 => 16,
-            Self::X16 => 64,
-            Self::X4 => 256,
-        }
-    }
-
-    const fn bits(&self) -> u8 {
-        match self {
-            Self::X1 => 0b00,
-            Self::X64 => 0b01,
-            Self::X16 => 0b10,
-            Self::X4 => 0b11,
-        }
-    }
-}
-
-impl Default for TimerFrequency {
+impl Default for Timer {
     fn default() -> Self {
-        Self::X1
-    }
-}
-
-impl From<u8> for TimerFrequency {
-    fn from(value: u8) -> TimerFrequency {
-        match value {
-            0b00 => TimerFrequency::X1,
-            0b01 => TimerFrequency::X64,
-            0b10 => TimerFrequency::X16,
-            0b11 => TimerFrequency::X4,
-            _ => panic!("Invalid frequency value"),
+        Self {
+            is_enabled: Default::default(),
+            step: 256,
+            div: Default::default(),
+            counter: Default::default(),
+            modulo: Default::default(),
+            div_clocks: Default::default(),
+            clocks: Default::default(),
+            interrupt: Default::default(),
         }
     }
 }

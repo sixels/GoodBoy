@@ -2,11 +2,7 @@
 
 use std::iter;
 
-use crate::{
-    gpu::Gpu,
-    io::{Serial, Timer},
-    memory::MemoryAccess,
-};
+use crate::{cartridge::{Cartridge, MBC}, gpu::Gpu, io::{Serial, Timer}, memory::MemoryAccess};
 
 bitflags::bitflags! {
     #[derive(Default)]
@@ -26,18 +22,12 @@ pub struct Bus {
     /// Cartridge buffer \
     /// 0x0000 ..= 0x3FFF -> ROM0 \
     /// 0x4000 ..= 0x7FFF -> ROMX
-    rom_buffer: Box<[u8; 0x8000]>,
+    // rom_buffer: Box<[u8; 0x8000]>,
     /// 0xA000 ..= 0xBFFF
-    sram: Box<[u8; 0x2000]>,
+    // sram: Box<[u8; 0x2000]>,
 
-    /// TODO: Wrap both in the Gpu struct
-    ///
-    /// Video RAM \
-    /// 0x8000 ..= 0x9FFF
-    vram: Box<[u8; 0x2000]>,
-    /// Sprite information table \
-    /// 0xFE00 ..= 0xFE9F
-    oam: [u8; 0xA0],
+    // Cartridge
+    cartridge: Cartridge,
 
     /// Work RAM \
     /// 0xC000 ..= 0xCFFF -> WRAM0 \
@@ -73,20 +63,28 @@ pub struct Bus {
     /// Interrupt Enable (IE) \
     /// 0xFFFF
     pub ienable: InterruptFlags,
+    
+    wram_bank: usize,
 }
 
 impl Bus {
     pub fn new(rom: &[u8]) -> Bus {
-        // TODO: Initialize the WRAM with the size specified by the cartridge
-        let wram = iter::repeat(0).take(0x2000).collect();
+        let wram = iter::repeat(0).take(0x8000).collect();
 
-        let mut rom_buffer = box [0; 0x8000];
-        rom_buffer[..rom.len()].copy_from_slice(rom);
+        let cartridge = Cartridge::new(rom);
 
         let mut bus = Bus {
-            rom_buffer,
+            cartridge,
             wram,
-            ..Default::default()
+
+            gpu: Default::default(),
+            serial: Default::default(),
+            timer: Default::default(),
+            io_registers: [0; 0x80],
+            zram: [0; 0x7F],
+            ienable: Default::default(),
+            iflag: Default::default(),
+            wram_bank: 1,
         };
 
         // Startup sequence
@@ -126,8 +124,21 @@ impl Bus {
         bus
     }
 
+    // pub fn new_blank(bios: &[u8]) -> Bus {
+    //     let wram = iter::repeat(0).take(0x2000).collect();
+
+    //     let mut rom_buffer = box [0; 0x8000];
+    //     rom_buffer[..bios.len()].copy_from_slice(bios);
+
+    //     Bus {
+    //         rom_buffer,
+    //         wram,
+    //         ..Default::default()
+    //     }
+    // }
+
     /// Ticks the IO devices
-    pub fn tick(&mut self, clocks: u8) -> u8 {
+    pub fn tick(&mut self, clocks: u32) -> u32 {
         // update the timer
         self.timer.sync(clocks);
         if self.timer.interrupt {
@@ -159,14 +170,14 @@ impl Bus {
 impl MemoryAccess for Bus {
     fn mem_read(&self, addr: u16) -> u8 {
         match addr {
-            0x0000..=0x7FFF => self.rom_buffer[addr as usize],
+            0x0000..=0x7FFF => self.cartridge.rom_read(addr),
 
             0x8000..=0x9FFF => self.gpu.mem_read(addr),
 
-            0xA000..=0xBFFF => self.sram[(addr & 0x5FFF) as usize],
+            0xA000..=0xBFFF => self.cartridge.ram_read(addr),
 
             0xC000..=0xCFFF | 0xE000..=0xEFFF => self.wram[(addr & 0x0FFF) as usize],
-            0xD000..=0xDFFF | 0xF000..=0xFDFF => self.wram[(addr & 0x0FFF | 0x1000) as usize],
+            0xD000..=0xDFFF | 0xF000..=0xFDFF => self.wram[((addr as usize) & 0x0FFF | (self.wram_bank * 0x1000))],
 
             0xFE00..=0xFE9F => self.gpu.mem_read(addr),
 
@@ -180,6 +191,7 @@ impl MemoryAccess for Bus {
             0xFF46 => 0,
             0xFF40..=0xFF4B => self.gpu.mem_read(addr),
 
+            0xFF70 => self.wram_bank as u8,
             0xFF00..=0xFF7F => self.io_registers[(addr & 0xFF) as usize],
 
             0xFF80..=0xFFFE => self.zram[(addr & 0x7F) as usize],
@@ -190,11 +202,11 @@ impl MemoryAccess for Bus {
 
     fn mem_write(&mut self, addr: u16, value: u8) {
         match addr {
-            0x0000..=0x7FFF => self.rom_buffer[addr as usize] = value,
+            0x0000..=0x7FFF => self.cartridge.rom_write(addr, value),
 
             0x8000..=0x9FFF => self.gpu.mem_write(addr, value),
 
-            0xA000..=0xBFFF => self.sram[(addr & 0x5FFF) as usize] = value,
+            0xA000..=0xBFFF => self.cartridge.ram_write(addr, value),
 
             0xC000..=0xCFFF | 0xE000..=0xEFFF => self.wram[(addr & 0x0FFF) as usize] = value,
             0xD000..=0xDFFF | 0xF000..=0xFDFF => {
@@ -219,33 +231,14 @@ impl MemoryAccess for Bus {
             }
             0xFF40..=0xFF4B => self.gpu.mem_write(addr, value),
 
+            0xFF70 => { 
+                self.wram_bank = if (value & 0x7) == 0 { 1 } else { (value & 0x7) as usize }
+            }
             0xFF00..=0xFF7F => self.io_registers[(addr & 0xFF) as usize] = value,
 
             0xFF80..=0xFFFE => self.zram[(addr & 0x7F) as usize] = value,
 
             0xFFFF => self.ienable = InterruptFlags::from_bits_truncate(value),
-        }
-    }
-}
-
-impl Default for Bus {
-    fn default() -> Bus {
-        Bus {
-            rom_buffer: box [0; 0x8000],
-            sram: box [0; 0x2000],
-            vram: box [0; 0x2000],
-            oam: [0; 0xA0],
-
-            wram: Vec::new(),
-            zram: [0; 0x7F],
-
-            io_registers: [0; 0x80],
-            timer: Timer::default(),
-            serial: Serial::default(),
-            gpu: Gpu::default(),
-
-            iflag: Default::default(),
-            ienable: Default::default(),
         }
     }
 }

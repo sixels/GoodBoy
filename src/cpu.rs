@@ -50,22 +50,39 @@ impl Cpu {
         }
     }
 
-    #[allow(unused_mut)]
-    pub fn run(&mut self) -> u8 {
-        let mut step = false;
-        self.run_callback(move |cpu| {
-            // if cpu.mem_read(cpu.pc) == 0xFB {
-            //     step = true;
-            // }
+    // pub fn new_blank(bus: Bus) -> Self {
+    //     let regs = Registers {
+    //         a: 0,
+    //         b: 0,
+    //         c: 0,
+    //         d: 0,
+    //         e: 0,
+    //         h: 0,
+    //         l: 0,
+    //         f: Default::default(),
+    //     };
 
-            if step {
-                println!("{:?}", cpu);
-                std::io::stdin().read_line(&mut String::new()).unwrap();
-            }
-        })
+    //     Self {
+    //         bus,
+    //         sp: 0,
+    //         pc: 0,
+
+    //         regs,
+
+    //         ime: false,
+    //         set_ei: 0,
+    //         set_di: 0,
+
+    //         halted: false,
+    //     }
+    // }
+
+    #[allow(unused_mut)]
+    pub fn run(&mut self) -> u32 {
+        self.run_callback(|_| {})
     }
 
-    pub fn run_callback<FN>(&mut self, mut callback: FN) -> u8
+    pub fn run_callback<FN>(&mut self, mut callback: FN) -> u32
     where
         FN: FnMut(&mut Self),
     {
@@ -74,7 +91,7 @@ impl Cpu {
         self.bus.tick(clocks)
     }
 
-    pub fn tick(&mut self) -> Result<u8, Box<dyn std::error::Error>> {
+    pub fn tick(&mut self) -> Result<u32, Box<dyn std::error::Error>> {
         // Update the interrupt state
         self.update_ime();
         match self.handle_interruption() {
@@ -154,7 +171,7 @@ impl Cpu {
     }
 
     /// Handle interruptions
-    fn handle_interruption(&mut self) -> u8 {
+    fn handle_interruption(&mut self) -> u32 {
         if !self.ime && !self.halted {
             return 0;
         }
@@ -175,21 +192,21 @@ impl Cpu {
         let triggered = triggered as u8;
 
         let triggered_interruption = InterruptFlags::from_bits_truncate(1 << triggered);
-
-        // Remove and handle the interruption
         self.bus.iflag.remove(triggered_interruption);
         self.push_stack(self.pc);
         self.pc = 0x40 | (triggered << 3) as u16;
 
         self.ime = false;
-        20
+        16
     }
 
-    pub fn exec_opcode<'a>(&mut self, opcode: &Opcode<'a>) -> Result<u8, String> {
+    pub fn exec_opcode<'a>(&mut self, opcode: &Opcode<'a>) -> Result<u32, String> {
         let mut cycles = opcode.cycles;
 
         match opcode.instruction {
             Instruction::NOP => (),
+
+            Instruction::STOP => eprintln!("STOP in not implemented yet"),
 
             Instruction::LDIM16(target) => {
                 let immediate = self.fetch_word();
@@ -572,7 +589,7 @@ impl Cpu {
     /// If `condition` is true, adds the next signed byte to PC (PC = PC + i8),
     /// otherwise, do nothing. \
     /// Returns the instruction cycles.
-    fn branch_jr(&mut self, condition: bool) -> u8 {
+    fn branch_jr(&mut self, condition: bool) -> u32 {
         let offset = self.fetch_byte() as i8;
         if condition {
             self.pc = self.pc.wrapping_add(offset as u16);
@@ -585,7 +602,7 @@ impl Cpu {
     /// If `condition` is true, jump to the offset denoted by the next word (PC = u16),
     /// otherwise, do nothing. \
     /// Returns the instruction cycles.
-    fn branch_jp(&mut self, condition: bool) -> u8 {
+    fn branch_jp(&mut self, condition: bool) -> u32 {
         let offset = self.fetch_word();
         if condition {
             self.pc = offset;
@@ -598,7 +615,7 @@ impl Cpu {
     /// If `condition` is true, save the address of the next instruction onto the stack,
     /// then jump to the address denoted by the next word, otherwise, do nothing. \
     /// Returns the instruction cycles.
-    fn branch_call(&mut self, condition: bool) -> u8 {
+    fn branch_call(&mut self, condition: bool) -> u32 {
         if condition {
             self.push_stack(self.pc + 2);
             self.branch_jp(true);
@@ -612,7 +629,7 @@ impl Cpu {
 
     /// If `condition` is true, set the PC to the last address on the stack, otherwise, do nothing. \
     /// Returns the instruction cycles.
-    fn branch_ret(&mut self, condition: bool) -> u8 {
+    fn branch_ret(&mut self, condition: bool) -> u32 {
         if condition {
             self.pc = self.pop_stack();
             16
