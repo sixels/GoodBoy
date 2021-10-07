@@ -18,12 +18,13 @@ fn main() {
     let rom_path = args
         .next()
         .expect("You must pass the rom path as argument.");
+    let _bios_path = args.next();
 
     let event_loop = EventLoop::new();
 
     let window = {
         let gb_screen_size = LogicalSize::new(SCREEN_WIDTH as f64, SCREEN_HEIGHT as f64);
-        let window_size = LogicalSize::new(3.0 * SCREEN_WIDTH as f64, 3.0 * SCREEN_HEIGHT as f64);
+        let window_size = LogicalSize::new(1.0 * SCREEN_WIDTH as f64, 1.0 * SCREEN_HEIGHT as f64);
         WindowBuilder::new()
             .with_title("Good Boy 🐶")
             .with_min_inner_size(gb_screen_size)
@@ -41,7 +42,15 @@ fn main() {
             .unwrap()
     };
 
-    let vm = VM::new(rom_path);
+    let vm;
+    // if let Some(bios_path) = bios_path {
+        // println!("Loading with BIOS");
+        // vm = VM::new_blank(bios_path, rom_path);
+    // } else {
+        println!("Loading without BIOS");
+        vm = VM::new(rom_path);
+    // }
+    let vm = vm.unwrap();
     let (screen_sender, screen) = std::sync::mpsc::sync_channel(1);
 
     thread::spawn(move || {
