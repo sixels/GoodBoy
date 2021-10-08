@@ -1,3 +1,22 @@
+mod mbc;
+mod system_bus;
+
+pub mod cartridge;
+
+pub use system_bus::Bus;
+pub use mbc::Mbc;
+
+bitflags::bitflags! {
+    #[derive(Default)]
+    pub struct InterruptFlags: u8 {
+        const JOYPAD = 1 << 4;
+        const SERIAL = 1 << 3;
+        const TIMER  = 1 << 2;
+        const LCD    = 1 << 1;
+        const VBLANK = 1 << 0;
+    }
+}
+
 pub trait MemoryAccess {
     fn mem_read(&self, addr: u16) -> u8;
     fn mem_read_word(&self, addr: u16) -> u16 {

@@ -3,10 +3,8 @@
 #![feature(box_syntax)]
 
 pub mod cpu;
-pub mod memory;
-pub mod utils;
-pub mod bus;
 pub mod io;
-pub mod gpu;
+pub mod mmu;
+pub mod ppu;
+pub mod utils;
 pub mod vm;
-pub mod cartridge;

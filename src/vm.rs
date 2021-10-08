@@ -1,6 +1,6 @@
 use std::{fs, io, path::Path};
 
-use crate::{bus::Bus, cpu::Cpu};
+use crate::{mmu::Bus, cpu::Cpu};
 
 pub const SCREEN_WIDTH: usize = 160;
 pub const SCREEN_HEIGHT: usize = 144;

@@ -1,155 +1,17 @@
 use crate::{
-    memory::MemoryAccess,
+    mmu::MemoryAccess,
+    ppu::{
+        lcd::{LCDControl, LCDStatus},
+        palette::{PaletteKind, Palettes},
+        sprites, Color, Sprite,
+    },
     vm::{Screen, SCREEN_HEIGHT, SCREEN_WIDTH},
 };
 
-const VRAM_SIZE: usize = 0x2000;
 const OAM_SIZE: usize = 0xA0;
+const VRAM_SIZE: usize = 0x4000;
 
-#[derive(Debug, Clone, Copy)]
-struct Color {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-    pub a: u8,
-}
-
-impl Color {
-    pub const BLACK: Color = Color::rgb(0x221e31);
-    pub const DGRAY: Color = Color::rgb(0x41485d);
-    pub const LGRAY: Color = Color::rgb(0x778e98);
-    pub const WHITE: Color = Color::rgb(0xc5dbd4);
-
-    pub const fn rgb(color: u32) -> Self {
-        let rgb: [u8; 4] = (color << 8).to_be_bytes();
-
-        Color {
-            r: rgb[0],
-            g: rgb[1],
-            b: rgb[2],
-            a: 0xFF,
-        }
-    }
-
-    pub const fn as_slice(&self) -> [u8; 4] {
-        [self.r, self.g, self.b, self.a]
-    }
-}
-
-bitflags::bitflags! {
-    #[derive(Default)]
-    struct LCDControl: u8 {
-        /// 0 -> Off
-        /// 1 -> On
-        const LCD_POWER = 1 << 7;
-        /// 0 -> 0x9800..=0x9BFF
-        /// 1 -> 0x9C00..=0x9FFF
-        const WIN_TILEMAP = 1 << 6;
-        /// 0 -> Off
-        /// 1 -> On
-        const WIN_ENABLE = 1 << 5;
-        /// 0 -> 0x8800..=0x9CFF
-        /// 1 -> 0x8000..=0x8FFF
-        const BG_WIN_TILESET = 1 << 4;
-        /// 0 -> 0x9800..=0x9BFF
-        /// 1 -> 0x9C00..=0x9FFF
-        const BG_TILEMAP = 1 << 3;
-        /// 0 -> 8x8
-        /// 1 -> 8x16
-        const SPRITE_SIZE = 1 << 2;
-        /// 0 -> Off
-        /// 1 -> On
-        const SPRITES_ENABLE = 1 << 1;
-        /// 0 -> Off
-        /// 1 -> On
-        const BG_ENABLE = 1 << 0;
-    }
-}
-
-impl LCDControl {
-    #[inline(always)]
-    fn lcd_on(&self) -> bool {
-        self.contains(Self::LCD_POWER)
-    }
-
-    #[inline(always)]
-    fn win_on(&self) -> bool {
-        self.contains(Self::WIN_ENABLE)
-    }
-
-    #[inline(always)]
-    fn win_tilemap(&self) -> u16 {
-        if !self.contains(Self::WIN_TILEMAP) {
-            0x9800
-        } else {
-            0x9C00
-        }
-    }
-
-    #[inline(always)]
-    fn tileset_base(&self) -> u16 {
-        if !self.contains(Self::BG_WIN_TILESET) {
-            0x8800
-        } else {
-            0x8000
-        }
-    }
-
-    #[inline(always)]
-    fn bg_tilemap(&self) -> u16 {
-        if !self.contains(Self::BG_TILEMAP) {
-            0x9800
-        } else {
-            0x9C00
-        }
-    }
-
-    #[inline(always)]
-    fn sprite_size(&self) -> u32 {
-        if !self.contains(Self::SPRITE_SIZE) {
-            8
-        } else {
-            16
-        }
-    }
-
-    #[inline(always)]
-    fn sprites_on(&self) -> bool {
-        self.contains(Self::SPRITES_ENABLE)
-    }
-
-    #[inline(always)]
-    fn bg_enabled(&self) -> bool {
-        self.contains(Self::BG_ENABLE)
-    }
-}
-
-bitflags::bitflags! {
-    #[derive(Default)]
-    struct LCDStatus: u8 {
-        const SCAN_LINE_CHECK = 1 << 6;
-        const OAM_CHECK = 1 << 5;
-        const VBLANK_CHECK = 1 << 4;
-        const HBLANK_CHECK = 1 << 3;
-    }
-}
-
-impl LCDStatus {
-    fn scanline_check(&self) -> bool {
-        self.contains(Self::SCAN_LINE_CHECK)
-    }
-    fn oam_check(&self) -> bool {
-        self.contains(Self::OAM_CHECK)
-    }
-    fn vblank_check(&self) -> bool {
-        self.contains(Self::VBLANK_CHECK)
-    }
-    fn hblank_check(&self) -> bool {
-        self.contains(Self::HBLANK_CHECK)
-    }
-}
-
-#[derive(PartialEq, PartialOrd)]
+#[derive(PartialEq, PartialOrd, Clone, Copy)]
 enum GpuMode {
     HBlank,
     VBlank,
@@ -157,19 +19,15 @@ enum GpuMode {
     PixelTransfer,
 }
 
-#[derive(Debug, Clone, Copy, Default)]
-struct Sprite {
-    x: i32,
-    y: i32,
-
-    tile_number: u16,
-
-    priority: bool,
-
-    flip_x: bool,
-    flip_y: bool,
-
-    palette: bool,
+impl From<GpuMode> for u8 {
+    fn from(mode: GpuMode) -> Self {
+        match mode {
+            GpuMode::VBlank => 1,
+            GpuMode::OAMSearch => 2,
+            GpuMode::PixelTransfer => 3,
+            _ => 0,
+        }
+    }
 }
 
 pub struct Gpu {
@@ -191,7 +49,7 @@ pub struct Gpu {
 
     bg_palette: u8,
     object_palette: [u8; 2],
-    palettes: [[Color; 4]; 3],
+    palettes: Palettes,
 
     bg_priorities: [u8; SCREEN_WIDTH],
 
@@ -254,7 +112,7 @@ impl Gpu {
 
         if match self.mode {
             GpuMode::HBlank => {
-                self.draw_scanline();
+                self.render_scan_line();
                 self.lcd_status.hblank_check()
             }
             GpuMode::VBlank => {
@@ -270,7 +128,7 @@ impl Gpu {
         }
     }
 
-    fn draw_scanline(&mut self) {
+    fn render_scan_line(&mut self) {
         for x in 0..SCREEN_WIDTH {
             self.set_color(x, Color::WHITE);
             self.bg_priorities[x] = 2;
@@ -292,10 +150,10 @@ impl Gpu {
             return;
         }
 
-        let win_tile_y = ((win_y as u16) >> 3) & 31;
+        let win_tile_y = (win_y as u16 >> 3) & 31;
 
         let bg_y = self.scroll_y.wrapping_add(self.scan_line);
-        let bg_tile_y = ((bg_y as u16) >> 3) & 31;
+        let bg_tile_y = (bg_y as u16 >> 3) & 31;
 
         for x in 0..SCREEN_WIDTH {
             let win_x = -((self.win_x as i32) - 7) + (x as i32);
@@ -312,7 +170,7 @@ impl Gpu {
             } else if self.lcd_control.bg_enabled() {
                 tilemap_base = self.lcd_control.bg_tilemap();
                 tile_y = bg_tile_y;
-                tile_x = ((bg_x as u16) >> 3) & 31;
+                tile_x = (bg_x as u16 >> 3) & 31;
                 pixel_y = bg_y as u16 & 0x07;
                 pixel_x = bg_x as u8 & 0x07;
             } else {
@@ -331,14 +189,13 @@ impl Gpu {
             let a0 = tile_addr + pixel_y * 2;
             let (b1, b2) = (self.mem_read(a0), self.mem_read(a0 + 1));
 
-            let xbit = 7 - pixel_x;
-            let colornr = (if b1 & (1 << xbit) != 0 { 1 } else { 0 })
-                | (if b2 & (1 << xbit) != 0 { 2 } else { 0 });
+            let xbit = 7 - pixel_x as u32;
+            let color_nr = if b1 & (1 << xbit) != 0 { 1 } else { 0 }
+                | if b2 & (1 << xbit) != 0 { 2 } else { 0 };
 
-            self.bg_priorities[x] = if colornr == 0 { 0 } else { 2 };
+            self.bg_priorities[x] = if color_nr == 0 { 0 } else { 2 };
 
-            let color = self.palettes[0][colornr as usize];
-
+            let color = self.palettes.get(PaletteKind::BG)[color_nr];
             self.set_color(x, color);
         }
     }
@@ -348,10 +205,13 @@ impl Gpu {
             return;
         }
 
-        for sprite_nr in 0..40 {
-            let i = 39 - sprite_nr;
+        let mut sprites_in_row: usize = 0;
 
-            let sprite = self.sprites[i];
+        for sprite in self.sprites {
+            // each row can only have 10 sprites
+            if sprites_in_row >= 10 {
+                break;
+            }
 
             let scan_line = self.scan_line as i32;
             let sprite_size = self.lcd_control.sprite_size() as i32;
@@ -362,6 +222,7 @@ impl Gpu {
             {
                 continue;
             }
+            sprites_in_row += 1;
 
             let tile_y = if sprite.flip_y {
                 sprite_size - 1 - (scan_line - sprite.y)
@@ -369,8 +230,8 @@ impl Gpu {
                 scan_line - sprite.y
             } as u16;
 
-            let tile_nr = sprite.tile_number & (if sprite_size == 16 { 0xFE } else { 0xFF });
-            let tile_addr = 0x8000u16 + tile_nr * 16 + tile_y * 2;
+            let tile_number = sprite.tile_number & if sprite_size == 16 { 0xFE } else { 0xFF };
+            let tile_addr = 0x8000u16 + tile_number * 16 + tile_y * 2;
 
             let (b1, b2) = (self.mem_read(tile_addr), self.mem_read(tile_addr + 1));
 
@@ -381,7 +242,7 @@ impl Gpu {
 
                 let xbit = 1 << (if sprite.flip_x { x } else { 7 - x });
                 let color_nr =
-                    (if b1 & xbit != 0 { 1 } else { 0 }) | (if b2 & xbit != 0 { 2 } else { 0 });
+                    if b1 & xbit != 0 { 1 } else { 0 } | if b2 & xbit != 0 { 2 } else { 0 };
 
                 // the pixel is transparent
                 if color_nr == 0 {
@@ -392,7 +253,12 @@ impl Gpu {
                     continue 'bits;
                 }
 
-                let color = self.palettes[((sprite.palette ^ true) as u8 + 1) as usize][color_nr];
+                let palette = if !sprite.palette {
+                    PaletteKind::OBJ0
+                } else {
+                    PaletteKind::OBJ1
+                };
+                let color = self.palettes.get(palette)[color_nr];
                 self.set_color((sprite.x + x) as usize, color)
             }
         }
@@ -405,39 +271,18 @@ impl Gpu {
         }
     }
 
-    fn update_palettes(&mut self, palette_nr: usize) {
-        debug_assert!(palette_nr <= 3);
-
-        for i in 0..4 {
-            let color = match i {
+    fn update_palette(&mut self, palette: PaletteKind, value: u8) {
+        fn get_palette_color(value: u8, i: usize) -> Color {
+            match (value >> 2 * i) & 0x03 {
                 0 => Color::WHITE,
                 1 => Color::LGRAY,
                 2 => Color::DGRAY,
-                3 => Color::BLACK,
-                _ => unreachable!(),
-            };
-
-            self.palettes[palette_nr][i] = color;
-        }
-    }
-
-    fn update_sprite(&mut self, sprite_addr: u16) {
-        let sprite_addr = sprite_addr as usize;
-
-        let i = sprite_addr >> 2;
-        let value = self.oam[sprite_addr];
-
-        match sprite_addr & 0x03 {
-            0 => self.sprites[i].y = value as u16 as i32 - 16,
-            1 => self.sprites[i].x = value as u16 as i32 - 8,
-            2 => self.sprites[i].tile_number = value as u16,
-            3 => {
-                self.sprites[i].priority = (value & 0x80) == 0x80;
-                self.sprites[i].flip_y = (value & 0x40) == 0x40;
-                self.sprites[i].flip_x = (value & 0x20) == 0x20;
-                self.sprites[i].palette = (value & 0x10) == 0x10;
+                _ => Color::BLACK,
             }
-            _ => (),
+        }
+
+        for i in 0..4 {
+            self.palettes.get_mut(palette)[i] = get_palette_color(value, i);
         }
     }
 
@@ -452,11 +297,19 @@ impl Gpu {
 impl MemoryAccess for Gpu {
     fn mem_read(&self, addr: u16) -> u8 {
         match addr {
-            0x8000..=0x9FFF => self.vram[(addr & 0x7FFF) as usize],
+            0x8000..=0x9FFF => self.vram[(addr & 0x1FFF) as usize],
             0xFE00..=0xFE9F => self.oam[(addr & 0x01FF) as usize],
 
             0xFF40 => self.lcd_control.bits(),
-            0xFF41 => self.lcd_status.bits(),
+            0xFF41 => {
+                self.lcd_status.bits()
+                    | (if self.scan_line == self.scan_line_check {
+                        0x04
+                    } else {
+                        0
+                    })
+                    | u8::from(self.mode)
+            }
 
             0xFF42 => self.scroll_y,
             0xFF43 => self.scroll_x,
@@ -465,7 +318,8 @@ impl MemoryAccess for Gpu {
             0xFF45 => self.scan_line_check,
 
             0xFF47 => self.bg_palette,
-            0xFF48..=0xFF49 => self.object_palette[(addr & 1) as usize],
+            0xFF48 => self.object_palette[0],
+            0xFF49 => self.object_palette[1],
 
             0xFF4A => self.win_y,
             0xFF4B => self.win_x,
@@ -475,18 +329,18 @@ impl MemoryAccess for Gpu {
     }
     fn mem_write(&mut self, addr: u16, value: u8) {
         match addr {
-            0x8000..=0x9FFF => self.vram[(addr & 0x7FFF) as usize] = value,
+            0x8000..=0x9FFF => self.vram[(addr & 0x1FFF) as usize] = value,
             0xFE00..=0xFE9F => {
-                let addr = addr & 0x01FF;
-                self.oam[addr as usize] = value;
-                self.update_sprite(addr);
+                let addr = addr as usize & 0x01FF;
+                self.oam[addr] = value;
+
+                sprites::update_sprites(&mut self.sprites, addr, value);
             }
 
             0xFF40 => {
-                let lcd_state = self.lcd_control.lcd_on();
+                let lcd_was_enable = self.lcd_control.lcd_on();
                 self.lcd_control = LCDControl::from_bits_truncate(value);
-                let new_lcd_state = self.lcd_control.lcd_on();
-                if lcd_state && !new_lcd_state {
+                if lcd_was_enable && !self.lcd_control.lcd_on() {
                     self.mode = GpuMode::HBlank;
                     self.clocks = 0;
                     self.scan_line = 0;
@@ -503,12 +357,15 @@ impl MemoryAccess for Gpu {
 
             0xFF47 => {
                 self.bg_palette = value;
-                self.update_palettes(0);
+                self.update_palette(PaletteKind::BG, value);
             }
-            0xFF48..=0xFF49 => {
-                let palette_nr = (addr & 1) as usize;
-                self.object_palette[palette_nr] = value;
-                self.update_palettes(palette_nr + 1);
+            0xFF48 => {
+                self.object_palette[0] = value;
+                self.update_palette(PaletteKind::OBJ0, value);
+            }
+            0xFF49 => {
+                self.object_palette[1] = value;
+                self.update_palette(PaletteKind::OBJ1, value);
             }
 
             0xFF4A => self.win_y = value,
@@ -540,7 +397,7 @@ impl Default for Gpu {
 
             bg_palette: 0,
             object_palette: [0, 0],
-            palettes: [[Color::WHITE; 4]; 3],
+            palettes: Palettes::default(),
 
             bg_priorities: [0; SCREEN_WIDTH],
             sprites: [Default::default(); 40],

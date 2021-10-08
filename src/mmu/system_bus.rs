@@ -1,19 +1,11 @@
-#![allow(dead_code)]
-
 use std::iter;
 
-use crate::{cartridge::{Cartridge, MBC}, gpu::Gpu, io::{Serial, Timer}, memory::MemoryAccess};
+use crate::{
+    io::{Serial, Timer},
+    ppu::Gpu,
+};
 
-bitflags::bitflags! {
-    #[derive(Default)]
-    pub struct InterruptFlags: u8 {
-        const JOYPAD = 1 << 4;
-        const SERIAL = 1 << 3;
-        const TIMER  = 1 << 2;
-        const LCD    = 1 << 1;
-        const VBLANK = 1 << 0;
-    }
-}
+use super::{InterruptFlags, Mbc, MemoryAccess, cartridge::Cartridge};
 
 /// The System Bus
 pub struct Bus {
@@ -63,7 +55,7 @@ pub struct Bus {
     /// Interrupt Enable (IE) \
     /// 0xFFFF
     pub ienable: InterruptFlags,
-    
+
     wram_bank: usize,
 }
 
@@ -177,7 +169,9 @@ impl MemoryAccess for Bus {
             0xA000..=0xBFFF => self.cartridge.ram_read(addr),
 
             0xC000..=0xCFFF | 0xE000..=0xEFFF => self.wram[(addr & 0x0FFF) as usize],
-            0xD000..=0xDFFF | 0xF000..=0xFDFF => self.wram[((addr as usize) & 0x0FFF | (self.wram_bank * 0x1000))],
+            0xD000..=0xDFFF | 0xF000..=0xFDFF => {
+                self.wram[((addr as usize) & 0x0FFF | (self.wram_bank * 0x1000))]
+            }
 
             0xFE00..=0xFE9F => self.gpu.mem_read(addr),
 
@@ -231,8 +225,12 @@ impl MemoryAccess for Bus {
             }
             0xFF40..=0xFF4B => self.gpu.mem_write(addr, value),
 
-            0xFF70 => { 
-                self.wram_bank = if (value & 0x7) == 0 { 1 } else { (value & 0x7) as usize }
+            0xFF70 => {
+                self.wram_bank = if (value & 0x7) == 0 {
+                    1
+                } else {
+                    (value & 0x7) as usize
+                }
             }
             0xFF00..=0xFF7F => self.io_registers[(addr & 0xFF) as usize] = value,
 

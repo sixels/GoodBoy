@@ -1,4 +1,4 @@
-use crate::memory::MemoryAccess;
+use crate::mmu::MemoryAccess;
 
 #[derive(Debug)]
 pub struct Timer {

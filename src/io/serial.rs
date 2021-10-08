@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use crate::memory::MemoryAccess;
+use crate::mmu::MemoryAccess;
 
 #[derive(Default)]
 pub struct Serial {

@@ -4,9 +4,9 @@ pub mod register;
 use std::fmt::Debug;
 
 use crate::{
-    bus::{Bus, InterruptFlags},
+    mmu::{Bus, InterruptFlags},
     cpu::instruction::Operand,
-    memory::MemoryAccess,
+    mmu::MemoryAccess,
     utils::UnsignedValue,
 };
 use instruction::{Condition, Instruction, Opcode, CB_OPCODE_MAP, OPCODE_MAP};
