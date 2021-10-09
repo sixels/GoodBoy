@@ -1,12 +1,15 @@
 use crate::{
     mmu::MemoryAccess,
     ppu::{
+        color::ColorType,
         lcd::{LCDControl, LCDStatus},
         palette::{PaletteKind, Palettes},
         sprites, Color, Sprite,
     },
     vm::{Screen, SCREEN_HEIGHT, SCREEN_WIDTH},
 };
+
+use super::color::ColorScheme;
 
 const OAM_SIZE: usize = 0xA0;
 const VRAM_SIZE: usize = 0x4000;
@@ -195,7 +198,7 @@ impl Gpu {
 
             self.bg_priorities[x] = if color_nr == 0 { 0 } else { 2 };
 
-            let color = self.palettes.get(PaletteKind::BG)[color_nr];
+            let color = self.palettes.get(PaletteKind::BG)[color_nr].0;
             self.set_color(x, color);
         }
     }
@@ -258,7 +261,7 @@ impl Gpu {
                 } else {
                     PaletteKind::OBJ1
                 };
-                let color = self.palettes.get(palette)[color_nr];
+                let color = self.palettes.get(palette)[color_nr].0;
                 self.set_color((sprite.x + x) as usize, color)
             }
         }
@@ -272,17 +275,18 @@ impl Gpu {
     }
 
     fn update_palette(&mut self, palette: PaletteKind, value: u8) {
-        fn get_palette_color(value: u8, i: usize) -> Color {
+        fn get_palette_color(value: u8, i: usize) -> ColorType {
             match (value >> 2 * i) & 0x03 {
-                0 => Color::WHITE,
-                1 => Color::LGRAY,
-                2 => Color::DGRAY,
-                _ => Color::BLACK,
+                0 => ColorType::White,
+                1 => ColorType::LightGray,
+                2 => ColorType::DarkGray,
+                _ => ColorType::Black,
             }
         }
 
         for i in 0..4 {
-            self.palettes.get_mut(palette)[i] = get_palette_color(value, i);
+            self.palettes
+                .update(palette, i, get_palette_color(value, i));
         }
     }
 
@@ -291,6 +295,10 @@ impl Gpu {
             pixels.copy_from_slice(&Color::WHITE.as_slice());
         }
         self.vblanked = true;
+    }
+
+    pub fn set_color_scheme(&mut self, color_scheme: ColorScheme) {
+        self.palettes.set_color_scheme(color_scheme)
     }
 }
 

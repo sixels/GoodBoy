@@ -1,6 +1,6 @@
 use std::{fs, io, path::Path};
 
-use crate::{cpu::Cpu, io::{JoypadButton}, mmu::Bus};
+use crate::{cpu::Cpu, io::JoypadButton, mmu::Bus, ppu::ColorScheme};
 
 pub const SCREEN_WIDTH: usize = 160;
 pub const SCREEN_HEIGHT: usize = 144;
@@ -54,5 +54,9 @@ impl VM {
 
     pub fn release_button(&mut self, button: JoypadButton) {
         self.cpu.bus.joypad.release_button(button);
+    }
+
+    pub fn set_color_scheme(&mut self, color_scheme: ColorScheme) {
+        self.cpu.bus.gpu.set_color_scheme(color_scheme);
     }
 }

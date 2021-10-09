@@ -6,11 +6,12 @@ use std::{
 use pixels::{PixelsBuilder, SurfaceTexture};
 use sixels_gb::{
     io::JoypadButton,
+    ppu::ColorScheme,
     vm::{Screen, SCREEN_HEIGHT, SCREEN_WIDTH, VM},
 };
 use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalSize},
-    event::{Event, WindowEvent},
+    event::{Event, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
 };
 use winit_input_helper::WinitInputHelper;
@@ -18,6 +19,7 @@ use winit_input_helper::WinitInputHelper;
 enum IoEvent {
     KeyPressed(JoypadButton),
     KeyReleased(JoypadButton),
+    SetColorScheme(ColorScheme),
 }
 
 fn main() {
@@ -59,6 +61,16 @@ fn main() {
 
     pixels.render().unwrap();
 
+    let mut color_schemes = [
+        ColorScheme::GRAY,
+        ColorScheme::BLUE_ALT,
+        ColorScheme::GREEN,
+        ColorScheme::BLUE,
+        ColorScheme::RED,
+    ]
+    .iter()
+    .cycle();
+
     event_loop.run(move |event, _, control_flow| {
         match event {
             Event::WindowEvent {
@@ -87,54 +99,92 @@ fn main() {
                 pixels.resize_surface(size.width, size.height);
             }
 
-            if input.key_pressed(winit::event::VirtualKeyCode::Right) {
-                io_sender.send(IoEvent::KeyPressed(JoypadButton::Right)).unwrap();
+            if input.key_pressed(VirtualKeyCode::Tab) {
+                io_sender
+                    .send(IoEvent::SetColorScheme(*color_schemes.next().unwrap()))
+                    .unwrap();
             }
-            if input.key_pressed(winit::event::VirtualKeyCode::Left) {
-                io_sender.send(IoEvent::KeyPressed(JoypadButton::Left)).unwrap();
+
+            if input.key_pressed(VirtualKeyCode::Right) {
+                io_sender
+                    .send(IoEvent::KeyPressed(JoypadButton::Right))
+                    .unwrap();
             }
-            if input.key_pressed(winit::event::VirtualKeyCode::Up) {
-                io_sender.send(IoEvent::KeyPressed(JoypadButton::Up)).unwrap();
+            if input.key_pressed(VirtualKeyCode::Left) {
+                io_sender
+                    .send(IoEvent::KeyPressed(JoypadButton::Left))
+                    .unwrap();
             }
-            if input.key_pressed(winit::event::VirtualKeyCode::Down) {
-                io_sender.send(IoEvent::KeyPressed(JoypadButton::Down)).unwrap();
+            if input.key_pressed(VirtualKeyCode::Up) {
+                io_sender
+                    .send(IoEvent::KeyPressed(JoypadButton::Up))
+                    .unwrap();
             }
-            if input.key_pressed(winit::event::VirtualKeyCode::Z) {
-                io_sender.send(IoEvent::KeyPressed(JoypadButton::A)).unwrap();
+            if input.key_pressed(VirtualKeyCode::Down) {
+                io_sender
+                    .send(IoEvent::KeyPressed(JoypadButton::Down))
+                    .unwrap();
             }
-            if input.key_pressed(winit::event::VirtualKeyCode::X) {
-                io_sender.send(IoEvent::KeyPressed(JoypadButton::B)).unwrap();
+            if input.key_pressed(VirtualKeyCode::Z) {
+                io_sender
+                    .send(IoEvent::KeyPressed(JoypadButton::A))
+                    .unwrap();
             }
-            if input.key_pressed(winit::event::VirtualKeyCode::Space) {
-                io_sender.send(IoEvent::KeyPressed(JoypadButton::Select)).unwrap();
+            if input.key_pressed(VirtualKeyCode::X) {
+                io_sender
+                    .send(IoEvent::KeyPressed(JoypadButton::B))
+                    .unwrap();
             }
-            if input.key_pressed(winit::event::VirtualKeyCode::Return) {
-                io_sender.send(IoEvent::KeyPressed(JoypadButton::Start)).unwrap();
+            if input.key_pressed(VirtualKeyCode::Space) {
+                io_sender
+                    .send(IoEvent::KeyPressed(JoypadButton::Select))
+                    .unwrap();
             }
-            
-            if input.key_released(winit::event::VirtualKeyCode::Right) {
-                io_sender.send(IoEvent::KeyReleased(JoypadButton::Right)).unwrap();
+            if input.key_pressed(VirtualKeyCode::Return) {
+                io_sender
+                    .send(IoEvent::KeyPressed(JoypadButton::Start))
+                    .unwrap();
             }
-            if input.key_released(winit::event::VirtualKeyCode::Left) {
-                io_sender.send(IoEvent::KeyReleased(JoypadButton::Left)).unwrap();
+
+            if input.key_released(VirtualKeyCode::Right) {
+                io_sender
+                    .send(IoEvent::KeyReleased(JoypadButton::Right))
+                    .unwrap();
             }
-            if input.key_released(winit::event::VirtualKeyCode::Up) {
-                io_sender.send(IoEvent::KeyReleased(JoypadButton::Up)).unwrap();
+            if input.key_released(VirtualKeyCode::Left) {
+                io_sender
+                    .send(IoEvent::KeyReleased(JoypadButton::Left))
+                    .unwrap();
             }
-            if input.key_released(winit::event::VirtualKeyCode::Down) {
-                io_sender.send(IoEvent::KeyReleased(JoypadButton::Down)).unwrap();
+            if input.key_released(VirtualKeyCode::Up) {
+                io_sender
+                    .send(IoEvent::KeyReleased(JoypadButton::Up))
+                    .unwrap();
             }
-            if input.key_released(winit::event::VirtualKeyCode::Z) {
-                io_sender.send(IoEvent::KeyReleased(JoypadButton::A)).unwrap();
+            if input.key_released(VirtualKeyCode::Down) {
+                io_sender
+                    .send(IoEvent::KeyReleased(JoypadButton::Down))
+                    .unwrap();
             }
-            if input.key_released(winit::event::VirtualKeyCode::X) {
-                io_sender.send(IoEvent::KeyReleased(JoypadButton::B)).unwrap();
+            if input.key_released(VirtualKeyCode::Z) {
+                io_sender
+                    .send(IoEvent::KeyReleased(JoypadButton::A))
+                    .unwrap();
             }
-            if input.key_released(winit::event::VirtualKeyCode::Space) {
-                io_sender.send(IoEvent::KeyReleased(JoypadButton::Select)).unwrap();
+            if input.key_released(VirtualKeyCode::X) {
+                io_sender
+                    .send(IoEvent::KeyReleased(JoypadButton::B))
+                    .unwrap();
             }
-            if input.key_released(winit::event::VirtualKeyCode::Return) {
-                io_sender.send(IoEvent::KeyReleased(JoypadButton::Start)).unwrap();
+            if input.key_released(VirtualKeyCode::Space) {
+                io_sender
+                    .send(IoEvent::KeyReleased(JoypadButton::Select))
+                    .unwrap();
+            }
+            if input.key_released(VirtualKeyCode::Return) {
+                io_sender
+                    .send(IoEvent::KeyReleased(JoypadButton::Start))
+                    .unwrap();
             }
         }
     });
@@ -163,6 +213,7 @@ fn vm_loop(vm: VM, screen_sender: SyncSender<Screen>, io: Receiver<IoEvent>) {
                 Ok(event) => match event {
                     IoEvent::KeyPressed(button) => vm.press_button(button),
                     IoEvent::KeyReleased(button) => vm.release_button(button),
+                    IoEvent::SetColorScheme(color_scheme) => vm.set_color_scheme(color_scheme),
                 },
                 Err(TryRecvError::Empty) => break,
                 Err(_) => break 'vm_loop,
