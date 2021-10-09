@@ -1,6 +1,6 @@
 use std::{fs, io, path::Path};
 
-use crate::{mmu::Bus, cpu::Cpu};
+use crate::{cpu::Cpu, io::{JoypadButton}, mmu::Bus};
 
 pub const SCREEN_WIDTH: usize = 160;
 pub const SCREEN_HEIGHT: usize = 144;
@@ -46,5 +46,13 @@ impl VM {
 
     pub fn get_screen(&self) -> Screen {
         self.cpu.bus.gpu.screen_buffer.clone()
+    }
+
+    pub fn press_button(&mut self, button: JoypadButton) {
+        self.cpu.bus.joypad.press_button(button);
+    }
+
+    pub fn release_button(&mut self, button: JoypadButton) {
+        self.cpu.bus.joypad.release_button(button);
     }
 }

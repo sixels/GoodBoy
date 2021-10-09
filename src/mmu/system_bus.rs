@@ -1,9 +1,6 @@
 use std::iter;
 
-use crate::{
-    io::{Serial, Timer},
-    ppu::Gpu,
-};
+use crate::{io::{Joypad, Serial, Timer}, ppu::Gpu};
 
 use super::{InterruptFlags, Mbc, MemoryAccess, cartridge::Cartridge};
 
@@ -32,6 +29,8 @@ pub struct Bus {
 
     /// GPU
     pub gpu: Gpu,
+    
+    pub joypad: Joypad,
 
     /// Timer \
     /// 0xFF04 -> Divider Register (DIV) \
@@ -39,12 +38,12 @@ pub struct Bus {
     /// 0xFF06 -> Modulo (TMA) \
     /// 0xFF07 -> Control (TAC)
     timer: Timer,
-
+    
     /// Serial \
     /// 0xFF01 -> Transfer Data (SD) \
     /// 0xFF02 -> Transfer Control (SC)
     serial: Serial,
-
+    
     /// Other I/O Registers \
     /// 0xFF00 ..= 0xFF7F
     io_registers: [u8; 0x80],
@@ -70,6 +69,7 @@ impl Bus {
             wram,
 
             gpu: Default::default(),
+            joypad: Default::default(),
             serial: Default::default(),
             timer: Default::default(),
             io_registers: [0; 0x80],
@@ -177,6 +177,8 @@ impl MemoryAccess for Bus {
 
             0xFEA0..=0xFEFF => 0, // unused
 
+            0xFF00 => self.joypad.read(),
+
             0xFF0F => self.iflag.bits(),
 
             0xFF01..=0xFF02 => self.serial.mem_read(addr),
@@ -210,6 +212,8 @@ impl MemoryAccess for Bus {
             0xFE00..=0xFE9F => self.gpu.mem_write(addr, value),
 
             0xFEA0..=0xFEFF => (), // unused
+
+            0xFF00 => self.joypad.write(value),
 
             0xFF0F => self.iflag = InterruptFlags::from_bits_truncate(value),
 

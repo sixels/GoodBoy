@@ -1,10 +1,12 @@
 mod mbc0;
 mod mbc1;
 mod mbc3;
+mod mbc5;
 
 pub use mbc0::Mbc0;
 pub use mbc1::Mbc1;
 pub use mbc3::Mbc3;
+pub use mbc5::Mbc5;
 
 #[allow(unused)]
 pub trait Mbc: Send {

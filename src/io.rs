@@ -1,5 +1,7 @@
-mod timer;
+mod joypad;
 mod serial;
+mod timer;
 
-pub use timer::Timer;
+pub use joypad::{Joypad, JoypadButton};
 pub use serial::Serial;
+pub use timer::Timer;

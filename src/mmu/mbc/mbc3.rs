@@ -25,7 +25,7 @@ impl Mbc3 {
                 // try to retrieve the save file
                 let ram = match fs::File::open(&path) {
                     Ok(mut f) => {
-                        let mut ram: Vec<u8> = Vec::with_capacity(ram_size);
+                        let mut ram: Vec<u8> = std::iter::repeat(0).take(ram_size).collect();
                         f.read_to_end(&mut ram).and_then(|_| Ok(ram)).ok()
                     }
                     Err(_) => None,
@@ -85,12 +85,14 @@ impl Mbc for Mbc3 {
             0x4000..=0x5FFF => self.ram_bank = value,
             0x6000..=0x7FFF => match value {
                 0 => {
-                    panic!("RTC not implemented");
+                    ()
+                    // panic!("RTC not implemented");
                 }
                 1 => {
-                    panic!("RTC not implemented")
+                    ()
+                    // panic!("RTC not implemented");
                 }
-                _ => {}
+                _ => ()
             },
             _ => panic!("Could not write to {:04X} (MBC3)", addr),
         }

@@ -1,16 +1,24 @@
 use std::{
-    sync::mpsc::{SyncSender, TrySendError},
+    sync::mpsc::{Receiver, SyncSender, TryRecvError, TrySendError},
     thread,
 };
 
 use pixels::{PixelsBuilder, SurfaceTexture};
-use sixels_gb::vm::{Screen, SCREEN_HEIGHT, SCREEN_WIDTH, VM};
+use sixels_gb::{
+    io::JoypadButton,
+    vm::{Screen, SCREEN_HEIGHT, SCREEN_WIDTH, VM},
+};
 use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalSize},
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
 };
 use winit_input_helper::WinitInputHelper;
+
+enum IoEvent {
+    KeyPressed(JoypadButton),
+    KeyReleased(JoypadButton),
+}
 
 fn main() {
     // Get the ROM path from the first argument
@@ -43,9 +51,10 @@ fn main() {
     // }
     let vm = vm.unwrap();
     let (screen_sender, screen) = std::sync::mpsc::sync_channel(1);
+    let (io_sender, io_receiver) = std::sync::mpsc::channel();
 
     thread::spawn(move || {
-        vm_loop(vm, screen_sender);
+        vm_loop(vm, screen_sender, io_receiver);
     });
 
     pixels.render().unwrap();
@@ -66,7 +75,7 @@ fn main() {
                 pixels.get_frame().copy_from_slice(&*data);
                 pixels.render().unwrap();
             }
-            Err(std::sync::mpsc::TryRecvError::Empty) => (),
+            Err(TryRecvError::Empty) => (),
             Err(_) => {
                 *control_flow = ControlFlow::Exit;
             }
@@ -77,9 +86,91 @@ fn main() {
             if let Some(size) = input.window_resized() {
                 pixels.resize_surface(size.width, size.height);
             }
+
+            if input.key_pressed(winit::event::VirtualKeyCode::Right) {
+                io_sender.send(IoEvent::KeyPressed(JoypadButton::Right)).unwrap();
+            }
+            if input.key_pressed(winit::event::VirtualKeyCode::Left) {
+                io_sender.send(IoEvent::KeyPressed(JoypadButton::Left)).unwrap();
+            }
+            if input.key_pressed(winit::event::VirtualKeyCode::Up) {
+                io_sender.send(IoEvent::KeyPressed(JoypadButton::Up)).unwrap();
+            }
+            if input.key_pressed(winit::event::VirtualKeyCode::Down) {
+                io_sender.send(IoEvent::KeyPressed(JoypadButton::Down)).unwrap();
+            }
+            if input.key_pressed(winit::event::VirtualKeyCode::Z) {
+                io_sender.send(IoEvent::KeyPressed(JoypadButton::A)).unwrap();
+            }
+            if input.key_pressed(winit::event::VirtualKeyCode::X) {
+                io_sender.send(IoEvent::KeyPressed(JoypadButton::B)).unwrap();
+            }
+            if input.key_pressed(winit::event::VirtualKeyCode::Space) {
+                io_sender.send(IoEvent::KeyPressed(JoypadButton::Select)).unwrap();
+            }
+            if input.key_pressed(winit::event::VirtualKeyCode::Return) {
+                io_sender.send(IoEvent::KeyPressed(JoypadButton::Start)).unwrap();
+            }
+            
+            if input.key_released(winit::event::VirtualKeyCode::Right) {
+                io_sender.send(IoEvent::KeyReleased(JoypadButton::Right)).unwrap();
+            }
+            if input.key_released(winit::event::VirtualKeyCode::Left) {
+                io_sender.send(IoEvent::KeyReleased(JoypadButton::Left)).unwrap();
+            }
+            if input.key_released(winit::event::VirtualKeyCode::Up) {
+                io_sender.send(IoEvent::KeyReleased(JoypadButton::Up)).unwrap();
+            }
+            if input.key_released(winit::event::VirtualKeyCode::Down) {
+                io_sender.send(IoEvent::KeyReleased(JoypadButton::Down)).unwrap();
+            }
+            if input.key_released(winit::event::VirtualKeyCode::Z) {
+                io_sender.send(IoEvent::KeyReleased(JoypadButton::A)).unwrap();
+            }
+            if input.key_released(winit::event::VirtualKeyCode::X) {
+                io_sender.send(IoEvent::KeyReleased(JoypadButton::B)).unwrap();
+            }
+            if input.key_released(winit::event::VirtualKeyCode::Space) {
+                io_sender.send(IoEvent::KeyReleased(JoypadButton::Select)).unwrap();
+            }
+            if input.key_released(winit::event::VirtualKeyCode::Return) {
+                io_sender.send(IoEvent::KeyReleased(JoypadButton::Start)).unwrap();
+            }
+        }
+    });
+}
+
+fn vm_loop(vm: VM, screen_sender: SyncSender<Screen>, io: Receiver<IoEvent>) {
+    let clocks_to_run = (4194304.0 / 1000.0 * 16f64).round() as u32;
+    let mut clocks = 0;
+
+    let mut vm = vm;
+
+    'vm_loop: loop {
+        while clocks < clocks_to_run {
+            clocks += vm.tick() as u32;
+
+            if vm.check_vblank() {
+                if let Err(TrySendError::Disconnected(..)) = screen_sender.try_send(vm.get_screen())
+                {
+                    return;
+                }
+            }
         }
 
-    });
+        loop {
+            match io.try_recv() {
+                Ok(event) => match event {
+                    IoEvent::KeyPressed(button) => vm.press_button(button),
+                    IoEvent::KeyReleased(button) => vm.release_button(button),
+                },
+                Err(TryRecvError::Empty) => break,
+                Err(_) => break 'vm_loop,
+            }
+        }
+
+        clocks -= clocks_to_run;
+    }
 }
 
 fn create_window(
@@ -128,26 +219,4 @@ fn create_window(
         size.height.round() as u32,
         hidpi_factor,
     )
-}
-
-fn vm_loop(vm: VM, screen_sender: SyncSender<Screen>) {
-    let clocks_to_run = (4194304.0 / 1000.0 * 16f64).round() as u32;
-    let mut clocks = 0;
-
-    let mut vm = vm;
-
-    loop {
-        while clocks < clocks_to_run {
-            clocks += vm.tick() as u32;
-
-            if vm.check_vblank() {
-                if let Err(TrySendError::Disconnected(..)) = screen_sender.try_send(vm.get_screen())
-                {
-                    return;
-                }
-            }
-        }
-
-        clocks -= clocks_to_run;
-    }
 }

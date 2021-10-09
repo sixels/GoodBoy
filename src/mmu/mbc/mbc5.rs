@@ -4,7 +4,7 @@ use crate::mmu::cartridge::MBC_KIND_ADDR;
 
 use super::Mbc;
 
-pub struct Mbc1 {
+pub struct Mbc5 {
     rom: Vec<u8>,
     ram: Vec<u8>,
     save: Option<PathBuf>,
@@ -15,11 +15,9 @@ pub struct Mbc1 {
     ram_enabled: bool,
 }
 
-impl Mbc1 {
+impl Mbc5 {
     pub fn new(rom: Vec<u8>, ram_size: usize) -> Box<dyn Mbc + 'static> {
-        println!("MBC1 cartridge detected");
-
-        dbg!(ram_size);
+        println!("MBC1 cartridge");
 
         let (ram, save) = match rom[MBC_KIND_ADDR] {
             0x02 => (None, None),
@@ -38,7 +36,7 @@ impl Mbc1 {
 
         let ram = ram.unwrap_or(std::iter::repeat(0).take(ram_size).collect());
 
-        Box::new(Mbc1 {
+        Box::new(Mbc5 {
             rom,
             ram,
             save,
@@ -55,7 +53,7 @@ impl Mbc1 {
     }
 }
 
-impl Mbc for Mbc1 {
+impl Mbc for Mbc5 {
     fn rom_read(&self, addr: u16) -> u8 {
         let addr = addr as usize;
 
@@ -84,11 +82,7 @@ impl Mbc for Mbc1 {
         match addr {
             0x0000..=0x1FFF => self.ram_enabled = value == 0x0A,
             0x2000..=0x3FFF => {
-                self.rom_bank = self.rom_bank & 0x60
-                    | match value & 0x1F {
-                        0 => 1,
-                        b => b,
-                    };
+                self.rom_bank = self.rom_bank & 0x60 | value & 0x1F;
             }
             0x4000..=0x5FFF => {
                 if self.banking_mode == 0 {
@@ -117,13 +111,13 @@ impl Mbc for Mbc1 {
     }
 }
 
-impl Drop for Mbc1 {
+impl Drop for Mbc5 {
     fn drop(&mut self) {
         match self.save {
             None => (),
             Some(ref path) => {
                 println!("Saving game to file {:?}", path);
-                fs::write(path, &self.ram).map(|_| println!("Saved Successfully")).ok();
+                fs::write(path, &self.ram).ok();
             }
         }
     }
