@@ -352,7 +352,7 @@ impl MemoryAccess for Gpu {
             0xFF42 => self.scroll_y = value,
             0xFF43 => self.scroll_x = value,
 
-            // 0xFF44 => READ-ONLY
+            0xFF44 => (), // READ-ONLY
             0xFF45 => self.scan_line_check = value,
 
             0xFF47 => {

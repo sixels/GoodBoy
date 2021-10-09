@@ -57,37 +57,36 @@ impl Mbc1 {
 
 impl Mbc for Mbc1 {
     fn rom_read(&self, addr: u16) -> u8 {
-        let addr = addr as usize;
-
-        let addr = if addr < 0x4000 {
-            addr
+        let addr = if addr <= 0x3FFF {
+            addr as usize
         } else {
-            addr & 0x3FFF | self.rom_bank as usize * 0x4000
+            self.rom_bank as usize * 0x4000 | ((addr as usize) & 0x3FFF)
         };
+
         self.rom[addr]
     }
     fn ram_read(&self, addr: u16) -> u8 {
-        if self.ram_enabled {
-            let ram_bank = if self.banking_mode != 0 {
-                self.ram_bank
-            } else {
-                0
-            };
-            let addr = addr & 0x1FFF | ram_bank as u16 * 0x2000;
+        if !self.ram_enabled {
+            return 0;
+        }
 
-            self.ram[addr as usize]
+        let ram_bank = if self.banking_mode != 0 {
+            self.ram_bank as usize
         } else {
             0
-        }
+        };
+        let addr = (ram_bank * 0x2000) | ((addr & 0x1FFF) as usize);
+
+        self.ram[addr]
     }
     fn rom_write(&mut self, addr: u16, value: u8) {
         match addr {
-            0x0000..=0x1FFF => self.ram_enabled = value == 0x0A,
+            0x0000..=0x1FFF => self.ram_enabled = value == 0b1010,
             0x2000..=0x3FFF => {
                 self.rom_bank = self.rom_bank & 0x60
                     | match value & 0x1F {
                         0 => 1,
-                        b => b,
+                        value => value,
                     };
             }
             0x4000..=0x5FFF => {
@@ -103,17 +102,19 @@ impl Mbc for Mbc1 {
     }
 
     fn ram_write(&mut self, addr: u16, value: u8) {
-        if self.ram_enabled {
-            self.ram_enabled = false;
-            let ram_bank = if self.banking_mode != 0 {
-                self.ram_bank
-            } else {
-                0
-            };
-            let addr = addr & 0x1FFF | ram_bank as u16 * 0x2000;
-
-            self.ram[addr as usize] = value;
+        if !self.ram_enabled {
+            return;
         }
+        // self.ram_enabled = false;
+
+        let ram_bank = if self.banking_mode != 0 {
+            self.ram_bank
+        } else {
+            0
+        };
+        let addr = addr & 0x1FFF | ram_bank as u16 * 0x2000;
+
+        self.ram[addr as usize] = value;
     }
 }
 
@@ -123,7 +124,9 @@ impl Drop for Mbc1 {
             None => (),
             Some(ref path) => {
                 println!("Saving game to file {:?}", path);
-                fs::write(path, &self.ram).map(|_| println!("Saved Successfully")).ok();
+                fs::write(path, &self.ram)
+                    .map(|_| println!("Saved Successfully"))
+                    .ok();
             }
         }
     }
