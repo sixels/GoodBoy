@@ -40,16 +40,16 @@ Planned features:
 
 Basic keyboard bindings
 
-| Keyboard Key       | Game Boy Button |
-| ------------------ | :-------------: |
-| <kbd>Z</kbd>       |        A        |
-| <kbd>X</kbd>       |        B        |
+| Keyboard Key        | Game Boy Button |
+| ------------------- | :-------------: |
+| <kbd>Z</kbd>        |        A        |
+| <kbd>X</kbd>        |        B        |
 | <kbd>↵ Return</kbd> |      Start      |
 | <kbd>Space</kbd>    |     Select      |
-| <kbd>←</kbd>       |      Left       |
-| <kbd>→</kbd>       |      Right      |
-| <kbd>↑</kbd>       |       Up        |
-| <kbd>↓</kbd>       |      Down       |
+| <kbd>←</kbd>        |      Left       |
+| <kbd>→</kbd>        |      Right      |
+| <kbd>↑</kbd>        |       Up        |
+| <kbd>↓</kbd>        |      Down       |
 
 Other bindings:
 
@@ -78,17 +78,17 @@ Other bindings:
             <td>
                 <img src="assets/showcase/dr_mario.png" width="360px" />
                 <br />
-                <small> <p align="center"> Game: Dr Mario </p> </small>
+                <small> Game: Dr Mario </small>
             </td>
             <td>
                 <img src="assets/showcase/disco_elysium.png" width="360px" />
                 <br />
-                <small> <p align="center"> Game: Disco Elysium (Demake) </p> </small>
+                <small> Game: Disco Elysium (Demake) </small>
             </td>
             <td>
                 <img src="assets/showcase/mario_land_2.png" width="360px" />
                 <br />
-                <small> <p align="center"> Super Mario Land 2: 6 Golden Coins </p> </small>
+                <small> Game: Super Mario Land 2 </small>
             </td>
         </tr>
     </table>
