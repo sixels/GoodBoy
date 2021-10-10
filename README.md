@@ -44,8 +44,8 @@ Basic keyboard bindings
 | ------------------ | :-------------: |
 | <kbd>Z</kbd>       |        A        |
 | <kbd>X</kbd>       |        B        |
-| <kbd>↵ Return<kbd> |      Start      |
-| <kbd>Space<kbd>    |     Select      |
+| <kbd>↵ Return</kbd> |      Start      |
+| <kbd>Space</kbd>    |     Select      |
 | <kbd>←</kbd>       |      Left       |
 | <kbd>→</kbd>       |      Right      |
 | <kbd>↑</kbd>       |       Up        |
@@ -74,23 +74,23 @@ Other bindings:
 
 <div align="center">
     <table>
-    <tr>
-        <td>
-            <img src="assets/showcase/dr_mario.png" width="360px" />
-            <br />
-            <small> <p align="center"> Game: Dr Mario </p> </small>
-        </td>
-        <td>
-            <img src="assets/showcase/disco_elysium.png" width="360px" />
-            <br />
-            <small> <p align="center"> Game: Disco Elysium (Demake) </p> </small>
-        </td>
-        <td>
-            <img src="assets/showcase/mario_land_2.png" width="360px" />
-            <br />
-            <small> <p align="center"> Super Mario Land 2: 6 Golden Coins </p> </small>
-        <td>
-    </tr>
+        <tr>
+            <td>
+                <img src="assets/showcase/dr_mario.png" width="360px" />
+                <br />
+                <small> <p align="center"> Game: Dr Mario </p> </small>
+            </td>
+            <td>
+                <img src="assets/showcase/disco_elysium.png" width="360px" />
+                <br />
+                <small> <p align="center"> Game: Disco Elysium (Demake) </p> </small>
+            </td>
+            <td>
+                <img src="assets/showcase/mario_land_2.png" width="360px" />
+                <br />
+                <small> <p align="center"> Super Mario Land 2: 6 Golden Coins </p> </small>
+            </td>
+        </tr>
     </table>
 </div>
 
