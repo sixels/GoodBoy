@@ -1146,7 +1146,6 @@ dependencies = [
  "bitflags",
  "console_log",
  "env_logger",
- "glow",
  "lazy_static",
  "log",
  "pixels",

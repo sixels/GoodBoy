@@ -16,12 +16,9 @@ use winit_input_helper::WinitInputHelper;
 use super::{common, ColorSchemeIter, IoEvent};
 
 pub async fn run(window: Window, event_loop: EventLoop<()>) {
-    use glow::*;
     use wasm_bindgen::JsCast;
 
     let mut input = WinitInputHelper::new();
-
-    let size = window.inner_size();
 
     let canvas = window.canvas();
     web_sys::window()
@@ -68,7 +65,7 @@ pub async fn run(window: Window, event_loop: EventLoop<()>) {
             let clocks_to_run = (4194304.0 / 1000.0f64).round() as u32;
 
             // let timer = speed_limit(Duration::from_millis(11));
-            let mut respect_timer = true;
+            let mut _respect_timer = true;
 
             while clocks < clocks_to_run {
                 clocks += vm.tick() as u32;
@@ -89,7 +86,7 @@ pub async fn run(window: Window, event_loop: EventLoop<()>) {
                         IoEvent::ButtonPressed(button) => vm.press_button(button),
                         IoEvent::ButtonReleased(button) => vm.release_button(button),
                         IoEvent::SetColorScheme(color_scheme) => vm.set_color_scheme(color_scheme),
-                        IoEvent::ToggleFPSLimit => respect_timer ^= true,
+                        IoEvent::ToggleFPSLimit => _respect_timer ^= true,
 
                         IoEvent::Exit => break,
                     },
@@ -110,7 +107,6 @@ pub async fn run(window: Window, event_loop: EventLoop<()>) {
                 )
                 .expect("could not create an image from the game boy screen");
 
-                context.scale(5.0, 5.0).unwrap();
                 context
                     .put_image_data(&image, 0.0, 0.0)
                     .expect("could not render the screen")
