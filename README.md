@@ -105,11 +105,11 @@ git clone https://github.com/sixels/goodboy && cd goodboy
 It is supposed to be cross platform (however I tested it only on Linux). Setup Rust and Cargo then build the project:
 
 ```sh
-cargo build --release
+cargo +nightly build --release
 ```
 
 run with:
 
 ```sh
-./target/release/sixels_gb PATH/TO/ROM.gb
+./target/release/goodboy PATH/TO/ROM.gb
 ```
