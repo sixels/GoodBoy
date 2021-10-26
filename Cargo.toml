@@ -1,24 +1,25 @@
 [package]
-name = "sixels_gb"
+name = "goodboy"
 version = "0.1.0"
 edition = "2018"
 resolver = "2"
 
-[dependencies]
-bitflags = "1.2"
-lazy_static = "1.4"
-log = "0.4"
-env_logger = "0.9"
+[workspace]
+members = ["goodboy-core"]
 
+[dependencies]
+goodboy_core = { path = "./goodboy-core" }
 winit_input_helper = "0.10"
 winit = "0.25"
+log = "0.4"
+env_logger = "0.9"
+lazy_static = "1.4"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 pixels = "0.7.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 winit = { version = "0.25", features = ["web-sys"] }
-
 web-sys = { version = "0.3.55", features = [
     'CanvasRenderingContext2d',
     'Document',
@@ -29,7 +30,5 @@ web-sys = { version = "0.3.55", features = [
 ] }
 wasm-bindgen = "0.2.78"
 wasm-bindgen-futures = "0.4.28"
-
 console_log = "0.2"
-
 # wgpu = { version = "0.11", features = ["webgl"] }

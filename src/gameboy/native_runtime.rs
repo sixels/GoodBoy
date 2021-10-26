@@ -5,7 +5,7 @@ use std::{
 };
 
 use pixels::{PixelsBuilder, SurfaceTexture};
-use sixels_gb::{ppu::ColorScheme, vm::VM};
+use goodboy_core::vm::VM;
 use winit::{
     event::{Event, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -14,13 +14,14 @@ use winit::{
 use winit_input_helper::WinitInputHelper;
 
 use super::{common, ColorSchemeIter, IoEvent};
+use crate::utils::fps_counter_middleware;
 
 pub fn run(window: Window, event_loop: EventLoop<()>) -> ! {
-    use sixels_gb::vm::{SCREEN_HEIGHT, SCREEN_WIDTH};
+    use goodboy_core::vm::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
-    use crate::utils::{create_window, fps_counter_middleware};
 
     let mut input = WinitInputHelper::new();
+
 
     let mut pixels = {
         let size = window.inner_size();

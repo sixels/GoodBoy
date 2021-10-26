@@ -497,6 +497,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "goodboy"
+version = "0.1.0"
+dependencies = [
+ "console_log",
+ "env_logger",
+ "goodboy_core",
+ "lazy_static",
+ "log",
+ "pixels",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "winit",
+ "winit_input_helper",
+]
+
+[[package]]
+name = "goodboy_core"
+version = "0.1.0"
+dependencies = [
+ "bitflags",
+ "lazy_static",
+ "log",
+]
+
+[[package]]
 name = "gpu-alloc"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1138,23 +1164,6 @@ name = "serde"
 version = "1.0.130"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f12d06de37cf59146fbdecab66aa99f9fe4f78722e3607577a5375d66bd0c913"
-
-[[package]]
-name = "sixels_gb"
-version = "0.1.0"
-dependencies = [
- "bitflags",
- "console_log",
- "env_logger",
- "lazy_static",
- "log",
- "pixels",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "winit",
- "winit_input_helper",
-]
 
 [[package]]
 name = "slotmap"

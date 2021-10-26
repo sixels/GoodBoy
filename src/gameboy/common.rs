@@ -2,7 +2,7 @@
 
 use std::{sync::mpsc::{self, Receiver, Sender, SyncSender, TryRecvError, TrySendError}, thread, time::Duration};
 
-use sixels_gb::{io::JoypadButton, vm::{Screen, VM}};
+use goodboy_core::{io::JoypadButton, vm::{Screen, VM}};
 use winit::event::VirtualKeyCode;
 use winit_input_helper::WinitInputHelper;
 

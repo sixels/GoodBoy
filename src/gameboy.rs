@@ -7,7 +7,7 @@ pub mod runtime;
 #[path = "gameboy/wasm_runtime.rs"]
 pub mod runtime;
 
-use sixels_gb::{io::JoypadButton, ppu::ColorScheme};
+use goodboy_core::{io::JoypadButton, ppu::ColorScheme};
 
 pub enum IoEvent {
     ButtonPressed(JoypadButton),
