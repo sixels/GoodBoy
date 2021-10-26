@@ -518,6 +518,7 @@ name = "goodboy_core"
 version = "0.1.0"
 dependencies = [
  "bitflags",
+ "env_logger",
  "lazy_static",
  "log",
 ]
