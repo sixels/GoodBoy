@@ -171,7 +171,7 @@ impl WgpuState {
             .await
             .expect("Could not request a device");
 
-        let mut size = window.inner_size();
+        let size = window.inner_size();
 
         surface.configure(
             &device,

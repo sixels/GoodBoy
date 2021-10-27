@@ -7,6 +7,9 @@ resolver = "2"
 [workspace]
 members = ["goodboy-core"]
 
+[features]
+fps = []
+
 [dependencies]
 goodboy_core = { path = "./goodboy-core" }
 winit_input_helper = "0.10"

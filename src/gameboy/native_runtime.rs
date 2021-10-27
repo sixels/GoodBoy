@@ -4,9 +4,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-// use pixels::{PixelsBuilder, SurfaceTexture};
-use goodboy_core::vm::{SCREEN_HEIGHT, SCREEN_WIDTH, VM};
-use wgpu_glyph::{ab_glyph, GlyphBrushBuilder, Section, Text};
+use goodboy_core::vm::VM;
+// use wgpu_glyph::{ab_glyph, GlyphBrushBuilder, Section, Text};
 use winit::{
     event::{Event, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -19,7 +18,7 @@ use super::{
     ColorSchemeIter, IoEvent,
 };
 
-pub async fn run(window: Window, event_loop: EventLoop<()>, vm: VM) -> ! {
+pub async fn run(window: Window, event_loop: EventLoop<()>, mut vm: VM) -> ! {
     let mut input = WinitInputHelper::new();
 
     let wgpu_state = WgpuState::new(&window).await;
@@ -35,24 +34,26 @@ pub async fn run(window: Window, event_loop: EventLoop<()>, vm: VM) -> ! {
 
     // let screen_receiver = fps_counter_middleware(screen_receiver);
 
+    let mut color_schemes_iter: ColorSchemeIter = box super::COLOR_SCHEMES.iter().copied().cycle();
+    vm.set_color_scheme(color_schemes_iter.next().unwrap());
+
     thread::spawn(move || {
         common::vm_loop(vm, screen_sender, io_receiver);
     });
 
-    let mut color_schemes_iter: ColorSchemeIter = box super::COLOR_SCHEMES.iter().copied().cycle();
 
-    let mut start = Instant::now();
-    let mut text_fps = String::from("FPS: 0");
-    let mut fps = 0;
+    // let mut start = Instant::now();
+    // let mut text_fps = String::from("FPS: 0");
+    // let mut fps = 0;
 
     window.request_redraw();
     event_loop.run(move |event, _, control_flow| {
-        let now = Instant::now();
-        if now > start + Duration::from_secs(1) {
-            start = now;
-            text_fps = format!("FPS: {}", fps);
-            fps = 0
-        }
+        // let now = Instant::now();
+        // if now > start + Duration::from_secs(1) {
+            // start = now;
+            // text_fps = format!("FPS: {}", fps);
+            // fps = 0
+        // }
 
         match event {
             Event::WindowEvent {
@@ -81,7 +82,7 @@ pub async fn run(window: Window, event_loop: EventLoop<()>, vm: VM) -> ! {
 
                 if let Some(screen) = &screen {
                     wgpu_state.render_frame(screen.as_ref());
-                    fps += 1;
+                    // fps += 1;
                 }
             }
             _ => (),

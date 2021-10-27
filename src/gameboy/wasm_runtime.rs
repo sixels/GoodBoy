@@ -1,6 +1,6 @@
 use std::sync::mpsc::{self, TryRecvError};
 
-use goodboy_core::vm::{SCREEN_HEIGHT, SCREEN_WIDTH, VM};
+use goodboy_core::vm::VM;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -27,15 +27,20 @@ pub async fn run(window: Window, event_loop: EventLoop<()>, mut vm: VM) {
     let (io_sender, io_receiver) = mpsc::channel();
 
     let mut color_schemes_iter: ColorSchemeIter = box super::COLOR_SCHEMES.iter().copied().cycle();
+    vm.set_color_scheme(color_schemes_iter.next().unwrap());
+
+    
+    
     let mut clocks = 0;
 
     // let mut start = Date::now();
     // let mut text_fps = String::from("FPS: 0");
     // let mut fps = 0;
 
-    log::info!("Starting the event loop");
     let mut screen = None;
     window.request_redraw();
+    
+    log::info!("Starting the event loop");
     event_loop.run(move |event, _, control_flow| {
 
         // VM loop
