@@ -7,12 +7,11 @@ mod gameboy;
 mod utils;
 
 use goodboy_core::vm::VM;
-use utils::create_window;
 use winit::event_loop::EventLoop;
 
 pub fn main() {
     let event_loop = EventLoop::new();
-    let (window, _, _, _) = create_window("Good Boy 🐶", &event_loop);
+    let (window, _, _, _) = utils::create_window("Good Boy 🐶", &event_loop);
 
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -24,7 +23,7 @@ pub fn main() {
 
         let vm = VM::new(rom_path).unwrap();
 
-        gameboy::runtime::run(window, event_loop, vm);
+        pollster::block_on(gameboy::runtime::run(window, event_loop, vm));
     }
     #[cfg(target_arch = "wasm32")]
     {
@@ -42,7 +41,7 @@ pub fn main() {
             })
             .unwrap();
 
-        let mut vm = VM::new_with_buffer(include_bytes!("../assets/roms/zelda.gb"));
+        let vm = VM::new_with_buffer(include_bytes!("../assets/roms/zelda.gb"));
 
         wasm_bindgen_futures::spawn_local(gameboy::runtime::run(window, event_loop, vm));
     }

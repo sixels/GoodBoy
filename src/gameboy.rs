@@ -9,6 +9,7 @@ pub mod runtime;
 
 use goodboy_core::{io::JoypadButton, ppu::ColorScheme};
 
+#[allow(dead_code)]
 pub enum IoEvent {
     ButtonPressed(JoypadButton),
     ButtonReleased(JoypadButton),
