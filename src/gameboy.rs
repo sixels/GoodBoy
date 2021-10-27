@@ -24,6 +24,6 @@ lazy_static::lazy_static! {
         ColorScheme::GREEN,
         ColorScheme::BLUE,
         ColorScheme::RED,
-    ];
+];
 }
 pub type ColorSchemeIter = Box<dyn Iterator<Item = ColorScheme>>;

@@ -44,7 +44,7 @@ pub fn handle_input(input: &mut WinitInputHelper, io_sender: &Sender<IoEvent>, c
 }
 
 pub fn vm_loop(mut vm: VM, screen_sender: SyncSender<Screen>, io: Receiver<IoEvent>) {
-    log::info!("a");
+    println!("a");
     let mut clocks = 0;
     let clocks_to_run = (4194304.0 / 1000.0 * 12f64).round() as u32;
 
@@ -56,6 +56,7 @@ pub fn vm_loop(mut vm: VM, screen_sender: SyncSender<Screen>, io: Receiver<IoEve
             clocks += vm.tick() as u32;
 
             if vm.check_vblank() {
+                // println!("b");
                 if let Err(TrySendError::Disconnected(..)) = screen_sender.try_send(vm.get_screen())
                 {
                     break;

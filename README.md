@@ -116,7 +116,7 @@ run with:
 
 ## Running on browser
 
-Use my script to compile the project to wasm32:
+Use my script to compile the project to wasm32 (you will need to install [wasm-bindgen cli](https://rustwasm.github.io/wasm-bindgen/reference/cli.html) before):
 
 ```sh
 sh ./build_wasm.sh release
@@ -130,13 +130,3 @@ python3 -m http.server --directory target/wasm_bindings 8080
 ```
 
 Open your browser and go to [localhost:8080](http://localhost:8080)
-
-### Disclaimer
-
-The actual browser implementation uses the canvas 2d context, which makes the things slow,
-the idea is using a webgl context instead, however I'm still figuring out a way to use `wgpu`
-to render the screen. Once i got it working, both native and web runtimes can be merged into
-a single runtime.
-
-Feel free to check it out on the browser, just keep in mind that your browser might freeze due
-to lack of performance.

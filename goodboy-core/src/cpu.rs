@@ -602,6 +602,7 @@ impl Cpu {
     /// If `condition` is true, jump to the offset denoted by the next word (PC = u16),
     /// otherwise, do nothing. \
     /// Returns the instruction cycles.
+    #[inline(always)]
     fn branch_jp(&mut self, condition: bool) -> u32 {
         let offset = self.fetch_word();
         if condition {
@@ -968,7 +969,7 @@ impl Cpu {
     ///
     /// Z: Set if bit `b` of register `r` is 0 \
     /// N: 0 \
-    /// H: 1 \
+    /// H: 1
     fn alu_bit(&mut self, b: u8, r: u8) -> u8 {
         let result = r & (1 << b);
 
