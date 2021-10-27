@@ -34,7 +34,6 @@ Planned features:
 - SGB support (Super Game Boy)
 - CGB support (Game Boy Color)
 - Sound support
-- A better FPS overlay (maybe)
 
 ## Controls
 

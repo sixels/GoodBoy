@@ -312,14 +312,6 @@ pub async fn run(window: Window, event_loop: EventLoop<()>, mut vm: VM) {
                     // render the FPS counter
                     {
                         glyph_brush.queue(Section {
-                            screen_position: (7.0, 7.0),
-                            bounds: (size.width as f32, size.height as f32),
-                            text: vec![Text::new(&text_fps)
-                                .with_color([0.0, 0.0, 0.0, 1.0])
-                                .with_scale(30.0)],
-                            ..Section::default()
-                        });
-                        glyph_brush.queue(Section {
                             screen_position: (5.0, 5.0),
                             bounds: (size.width as f32, size.height as f32),
                             text: vec![Text::new(&text_fps)
