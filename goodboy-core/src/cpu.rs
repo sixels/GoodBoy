@@ -4,9 +4,9 @@ pub mod register;
 use std::fmt::Debug;
 
 use crate::{
-    mmu::{Bus, InterruptFlags},
     cpu::instruction::Operand,
     mmu::MemoryAccess,
+    mmu::{Bus, InterruptFlags},
     utils::UnsignedValue,
 };
 use instruction::{Condition, Instruction, Opcode, CB_OPCODE_MAP, OPCODE_MAP};
@@ -34,13 +34,15 @@ pub struct Cpu {
 
 impl Cpu {
     pub fn new(bus: Bus) -> Self {
+        let gb_mode = bus.gb_mode;
+
         Self {
             bus,
 
             sp: 0xFFFE,
             pc: 0x0100,
 
-            regs: Default::default(),
+            regs: Registers::initialized(gb_mode),
 
             ime: false,
             set_ei: 0,
@@ -49,33 +51,6 @@ impl Cpu {
             halted: false,
         }
     }
-
-    // pub fn new_blank(bus: Bus) -> Self {
-    //     let regs = Registers {
-    //         a: 0,
-    //         b: 0,
-    //         c: 0,
-    //         d: 0,
-    //         e: 0,
-    //         h: 0,
-    //         l: 0,
-    //         f: Default::default(),
-    //     };
-
-    //     Self {
-    //         bus,
-    //         sp: 0,
-    //         pc: 0,
-
-    //         regs,
-
-    //         ime: false,
-    //         set_ei: 0,
-    //         set_di: 0,
-
-    //         halted: false,
-    //     }
-    // }
 
     #[allow(unused_mut)]
     pub fn run(&mut self) -> u32 {
@@ -137,16 +112,17 @@ impl Cpu {
 
     /// Decode the next byte
     pub fn fetch_and_decode(&mut self) -> &'static Opcode<'static> {
-        let byte = self.fetch_byte();
+        let pc = self.pc;
 
+        let byte = self.fetch_byte();
         let opcode = Cpu::decode(byte, false);
 
         let opcode = match opcode {
             Some(Opcode { code: 0xCB, .. }) => Cpu::decode(self.fetch_byte(), true),
             _ => opcode,
         };
-
-        opcode.unwrap_or_else(|| panic!("Unknown opcode: 0x{:02X}", byte))
+        
+        opcode.unwrap_or_else(|| panic!("Unknown opcode at 0x{:04X}: 0x{:02X}", pc, byte))
     }
 
     /// Decode the given byte
@@ -206,7 +182,7 @@ impl Cpu {
         match opcode.instruction {
             Instruction::NOP => (),
 
-            Instruction::STOP => eprintln!("STOP in not implemented yet"),
+            Instruction::STOP => log::warn!("STOP in not implemented yet"),
 
             Instruction::LDIM16(target) => {
                 let immediate = self.fetch_word();

@@ -8,3 +8,4 @@ pub mod mmu;
 pub mod ppu;
 pub mod utils;
 pub mod vm;
+mod gb_mode;

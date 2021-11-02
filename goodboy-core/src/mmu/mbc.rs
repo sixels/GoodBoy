@@ -18,4 +18,24 @@ pub trait Mbc: Send {
     }
     fn rom_write(&mut self, addr: u16, value: u8) {}
     fn ram_write(&mut self, addr: u16, value: u8) {}
+
+    fn kind<'a>(&'a self) -> Option<MbcKind<'a>> {
+        None
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum MbcKind<'a> {
+    MBC0,
+    MBC1(&'a Vec<MbcCapability>),
+    MBC3(&'a Vec<MbcCapability>),
+    MBC5(&'a Vec<MbcCapability>),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum MbcCapability {
+    RAM,
+    Battery,
+    Timer,
+    Rumble,
 }

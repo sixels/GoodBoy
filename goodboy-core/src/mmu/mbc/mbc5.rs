@@ -1,27 +1,33 @@
 use std::{fs, path::PathBuf};
 
-use crate::mmu::cartridge::MBC_KIND_ADDR;
+use crate::mmu::{cartridge::MBC_KIND_ADDR, mbc::MbcCapability};
 
-use super::Mbc;
+use super::{Mbc, MbcKind};
 
 pub struct Mbc5 {
+    capabilities: Vec<MbcCapability>,
+
     rom: Vec<u8>,
     ram: Vec<u8>,
     save: Option<PathBuf>,
 
-    rom_bank: u8,
-    ram_bank: u8,
-    banking_mode: u8,
+    rom_bank: usize,
+    ram_bank: usize,
+    // banking_mode: u8,
     ram_enabled: bool,
 }
 
 impl Mbc5 {
     pub fn new(rom: Vec<u8>, ram_size: usize) -> Box<dyn Mbc + 'static> {
-        println!("MBC1 cartridge");
+        // TODO: Specify capabilities
+        let (ram, save, capabilities) = match rom[MBC_KIND_ADDR] {
+            b @ 0x1B | b @ 0x1E => {
+                let mut capabilities = match b {
+                    0x18 => vec![MbcCapability::Timer],
+                    0x1E | _ => vec![MbcCapability::Timer, MbcCapability::RAM],
+                };
+                capabilities.push(MbcCapability::Battery);
 
-        let (ram, save) = match rom[MBC_KIND_ADDR] {
-            0x02 => (None, None),
-            0x03 => {
                 let path = PathBuf::from("save_file.gbsave");
                 let ram = match fs::read(&path) {
                     Ok(buffer) => Some(buffer),
@@ -29,14 +35,20 @@ impl Mbc5 {
                     Err(_) => None,
                 };
 
-                (ram, Some(path))
+                (ram, Some(path), capabilities)
             }
-            _ => (Some(Vec::new()), None),
+            _ => (
+                Some(std::iter::repeat(0).take(ram_size).collect()),
+                None,
+                vec![],
+            ),
         };
 
         let ram = ram.unwrap_or(std::iter::repeat(0).take(ram_size).collect());
 
         Box::new(Mbc5 {
+            capabilities,
+
             rom,
             ram,
             save,
@@ -45,7 +57,7 @@ impl Mbc5 {
             ram_bank: 0,
             // 00h simple ROM banking mode (default)
             // 01h RAM banking mode / advanced rom banking mode
-            banking_mode: 0,
+            // banking_mode: 0,
             // 00h disable RAM (default)
             // 0Ah enable RAM
             ram_enabled: false,
@@ -54,60 +66,44 @@ impl Mbc5 {
 }
 
 impl Mbc for Mbc5 {
+    fn kind<'a>(&'a self) -> Option<super::MbcKind<'a>> {
+        Some(MbcKind::MBC5(&self.capabilities))
+    }
+
     fn rom_read(&self, addr: u16) -> u8 {
         let addr = addr as usize;
 
         let addr = if addr < 0x4000 {
             addr
         } else {
-            addr & 0x3FFF | self.rom_bank as usize * 0x4000
+            (addr & 0x3FFF) | self.rom_bank as usize * 0x4000
         };
         self.rom[addr]
     }
     fn ram_read(&self, addr: u16) -> u8 {
-        if self.ram_enabled {
-            let ram_bank = if self.banking_mode != 0 {
-                self.ram_bank
-            } else {
-                0
-            };
-            let addr = addr & 0x1FFF | ram_bank as u16 * 0x2000;
-
-            self.ram[addr as usize]
-        } else {
-            0
+        if !self.ram_enabled {
+            return 0;
         }
+        self.ram[self.ram_bank * 0x2000 | ((addr as usize) & 0x1FFF)]
     }
     fn rom_write(&mut self, addr: u16, value: u8) {
         match addr {
             0x0000..=0x1FFF => self.ram_enabled = value == 0x0A,
-            0x2000..=0x3FFF => {
-                self.rom_bank = self.rom_bank & 0x60 | value & 0x1F;
+            0x2000..=0x2FFF => self.rom_bank = (self.rom_bank & 0x100) | value as usize,
+            0x3000..=0x3fff => {
+                self.rom_bank = (self.rom_bank & 0x0FF) | ((value as usize & 0x1) << 8)
             }
-            0x4000..=0x5FFF => {
-                if self.banking_mode == 0 {
-                    self.rom_bank = self.rom_bank & 0x1F | ((value & 0x03) << 5);
-                } else {
-                    self.ram_bank = value & 0x03;
-                }
-            }
-            0x6000..=0x7FFF => self.banking_mode = value & 0x01,
+            0x4000..=0x5FFF => self.ram_bank = (value & 0x0F) as usize,
+            0x6000..=0x7FFF => (),
             _ => panic!("Invalid MBC1 ROM addr: 0x{:04X}", addr),
         }
     }
 
     fn ram_write(&mut self, addr: u16, value: u8) {
-        if self.ram_enabled {
-            self.ram_enabled = false;
-            let ram_bank = if self.banking_mode != 0 {
-                self.ram_bank
-            } else {
-                0
-            };
-            let addr = addr & 0x1FFF | ram_bank as u16 * 0x2000;
-
-            self.ram[addr as usize] = value;
+        if self.ram_enabled == false {
+            return;
         }
+        self.ram[self.ram_bank * 0x2000 | ((addr as usize) & 0x1FFF)] = value;
     }
 }
 
@@ -116,7 +112,7 @@ impl Drop for Mbc5 {
         match self.save {
             None => (),
             Some(ref path) => {
-                println!("Saving game to file {:?}", path);
+                log::info!("Saving game to file {:?}", path);
                 fs::write(path, &self.ram).ok();
             }
         }

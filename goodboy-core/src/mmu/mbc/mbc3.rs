@@ -1,10 +1,16 @@
-use std::{fs, io::{Read, Write}, path::PathBuf};
+use std::{
+    fs,
+    io::{Read, Write},
+    path::{Path, PathBuf},
+};
 
-use crate::mmu::cartridge::MBC_KIND_ADDR;
+use crate::mmu::{cartridge::MBC_KIND_ADDR, mbc::MbcCapability};
 
-use super::Mbc;
+use super::{Mbc, MbcKind};
 
 pub struct Mbc3 {
+    capabilities: Vec<MbcCapability>,
+
     rom: Vec<u8>,
     ram: Vec<u8>,
     save: Option<PathBuf>,
@@ -15,15 +21,22 @@ pub struct Mbc3 {
 }
 
 impl Mbc3 {
-    pub fn new(rom: Vec<u8>, ram_size: usize) -> Box<dyn Mbc + 'static> {
-        println!("MBC3 cartridge");
-
-        let (ram, save) = match rom[MBC_KIND_ADDR] {
-            0x0F | 0x10 | 0x13 => {
-                let path = PathBuf::from("save_file.gbsave");
+    pub fn new(
+        rom: Vec<u8>,
+        ram_size: usize,
+        save_path: impl AsRef<Path>,
+    ) -> Box<dyn Mbc + 'static> {
+        let (ram, save, capabilities) = match rom[MBC_KIND_ADDR] {
+            b @ 0x0F | b @ 0x10 | b @ 0x13 => {
+                let mut capabilities = match b {
+                    0x0F => vec![MbcCapability::Timer],
+                    0x10 => vec![MbcCapability::Timer, MbcCapability::RAM],
+                    0x13 | _ => vec![MbcCapability::RAM],
+                };
+                capabilities.push(MbcCapability::Battery);
 
                 // try to retrieve the save file
-                let ram = match fs::File::open(&path) {
+                let ram = match fs::File::open(&save_path) {
                     Ok(mut f) => {
                         let mut ram: Vec<u8> = std::iter::repeat(0).take(ram_size).collect();
                         f.read_to_end(&mut ram).and_then(|_| Ok(ram)).ok()
@@ -31,14 +44,16 @@ impl Mbc3 {
                     Err(_) => None,
                 };
 
-                (ram, Some(path))
+                (ram, Some(save_path.as_ref().to_path_buf()), capabilities)
             }
-            0x12 => (None, None),
-            _ => (Some(Vec::new()), None),
+            0x12 => (None, None, vec![MbcCapability::RAM]),
+            0x11 | _ => (Some(Vec::new()), None, vec![]),
         };
         let ram = ram.unwrap_or(std::iter::repeat(0).take(ram_size).collect());
 
         Box::new(Mbc3 {
+            capabilities,
+
             rom,
             ram,
             save,
@@ -51,6 +66,10 @@ impl Mbc3 {
 }
 
 impl Mbc for Mbc3 {
+    fn kind<'a>(&'a self) -> Option<super::MbcKind<'a>> {
+        Some(MbcKind::MBC3(&self.capabilities))
+    }
+
     fn rom_read(&self, addr: u16) -> u8 {
         let addr = if addr < 0x4000 {
             addr as usize
@@ -92,7 +111,7 @@ impl Mbc for Mbc3 {
                     ()
                     // panic!("RTC not implemented");
                 }
-                _ => ()
+                _ => (),
             },
             _ => panic!("Could not write to {:04X} (MBC3)", addr),
         }
@@ -115,7 +134,7 @@ impl Drop for Mbc3 {
         match self.save {
             None => (),
             Some(ref path) => {
-                println!("Saving game to file {:?}", path);
+                log::info!("Saving game to file {:?}", path);
                 match fs::File::create(path) {
                     Ok(mut f) => {
                         f.write_all(&self.ram).ok();

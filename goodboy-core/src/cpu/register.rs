@@ -1,3 +1,5 @@
+use crate::gb_mode::GbMode;
+
 bitflags::bitflags! {
     #[derive(Default)]
     pub struct Flags: u8 {
@@ -35,16 +37,35 @@ pub struct Registers {
 }
 
 impl Registers {
-    pub const fn bc(&self) -> u16 {
+    pub(crate) fn initialized(gb_mode: GbMode) -> Registers {
+        let regs = Self {
+            a: 0x01,
+            b: 0x00,
+            c: 0x13,
+            d: 0x00,
+            e: 0xD8,
+            h: 0x01,
+            l: 0x4D,
+            f: Flags::from(0xB0),
+        };
+
+        if gb_mode == GbMode::CGB {
+            return Self { a: 0x11, ..regs };
+        }
+
+        regs
+    }
+
+    pub fn bc(&self) -> u16 {
         u16::from_be_bytes([self.b, self.c])
     }
-    pub const fn de(&self) -> u16 {
+    pub fn de(&self) -> u16 {
         u16::from_be_bytes([self.d, self.e])
     }
-    pub const fn hl(&self) -> u16 {
+    pub fn hl(&self) -> u16 {
         u16::from_be_bytes([self.h, self.l])
     }
-    pub const fn af(&self) -> u16 {
+    pub fn af(&self) -> u16 {
         u16::from_be_bytes([self.a, self.f.bits()])
     }
 
@@ -149,7 +170,7 @@ mod tests {
     fn remove_insert_flags() {
         let mut f = Flags::default();
 
-        f.insert( Flags::N | Flags::Z | Flags::H );
+        f.insert(Flags::N | Flags::Z | Flags::H);
 
         assert!(f.contains(Flags::H));
         assert!(f.contains(Flags::H));
