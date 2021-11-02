@@ -104,7 +104,7 @@ impl WgpuState {
                 bounds: (self.size.width as f32, self.size.height as f32),
                 text: vec![Text::new(&format!("FPS: {}", fps))
                     .with_color([1.0, 1.0, 1.0, 1.0])
-                    .with_scale(30.0)],
+                    .with_scale(20.0)],
                 ..Section::default()
             });
 
@@ -124,8 +124,6 @@ impl WgpuState {
 
         self.queue.submit(Some(encoder.finish()));
         frame.present();
-
-        // pollster::block_on(staging_belt.recall());
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {

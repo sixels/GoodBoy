@@ -34,12 +34,14 @@ pub fn main() {
         console_log::init().unwrap();
 
         use winit::platform::web::WindowExtWebSys;
+
         // On wasm, append the canvas to the document body
         web_sys::window()
             .and_then(|win| win.document())
-            .and_then(|doc| doc.body())
-            .and_then(|body| {
-                body.append_child(&web_sys::Element::from(window.canvas()))
+            .and_then(|document| document.get_element_by_id("screen"))
+            .and_then(|gb_div| {
+                gb_div
+                    .append_child(&web_sys::Element::from(window.canvas()))
                     .ok()
             })
             .unwrap();

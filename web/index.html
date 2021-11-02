@@ -1,14 +1,47 @@
-<html>
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  </head>
-  <body>
-    <script type="module">
-      import init from "./goodboy.js";
-      window.addEventListener("load", () => {
-        init();
-      });
-    </script>
-  </body>
-</html>
+<head>
+  <title>GoodBoy</title>
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, user-scalable=0"
+  />
+  <meta name="description" content="GoodBoy" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="gameboy">
+    <div class="left_container">
+      <div class="directions">
+        <div class="middle"></div>
+        <div class="left" id="btn_left"></div>
+        <div class="right" id="btn_right"></div>
+        <div class="up" id="btn_up"></div>
+        <div class="down" id="btn_down"></div>
+      </div>
+    </div>
+
+    <div class="screen_container">
+      <div id="screen">
+        <!-- canvas goes here -->
+      </div>
+    </div>
+
+    <div class="right_container">
+      <div class="actions">
+        <div class="b"><button id="btn-b"></button></div>
+        <div class="a"><button id="btn-a"></button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- <script src="main.js"></script> -->
+
+  <script type="module">
+    import init from "./goodboy.js";
+    window.addEventListener("load", () => {
+      init();
+    });
+  </script>
+</body>
+<html></html>
