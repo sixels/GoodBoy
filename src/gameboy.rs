@@ -7,7 +7,10 @@ pub mod runtime;
 #[path = "gameboy/wasm_runtime.rs"]
 pub mod runtime;
 
-use goodboy_core::{io::JoypadButton, ppu::{ColorScheme, color::Color}};
+use goodboy_core::{
+    io::JoypadButton,
+    ppu::{color::Color, ColorScheme},
+};
 
 #[allow(dead_code)]
 pub enum IoEvent {
@@ -45,7 +48,7 @@ lazy_static::lazy_static! {
         ),
 
         ColorScheme::RED,
-        
+
         // blue
         ColorScheme::new(
             Color::rgb(0x1C1530),

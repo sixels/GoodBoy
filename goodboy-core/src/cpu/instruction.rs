@@ -123,7 +123,13 @@ impl<'a> Opcode<'a> {
     }
 
     /// Creates a new prefixed instruction
-    pub fn cb(code: u8, len: usize, cycles: u32, instruction: Instruction, name: &'a str) -> Opcode {
+    pub fn cb(
+        code: u8,
+        len: usize,
+        cycles: u32,
+        instruction: Instruction,
+        name: &'a str,
+    ) -> Opcode {
         Opcode {
             code,
             instruction,
@@ -448,7 +454,7 @@ lazy_static::lazy_static! {
         Opcode::new(0xDF, 1, 16, Instruction::RST(0x18), "RST 0x18"),
         Opcode::new(0xEF, 1, 16, Instruction::RST(0x28), "RST 0x28"),
         Opcode::new(0xFF, 1, 16, Instruction::RST(0x38), "RST 0x38"),
-        
+
 
         // PREFIXED
         Opcode::new(0xCB, 1, 0, Instruction::CB, "0xCB"),

@@ -121,7 +121,7 @@ impl Cpu {
             Some(Opcode { code: 0xCB, .. }) => Cpu::decode(self.fetch_byte(), true),
             _ => opcode,
         };
-        
+
         opcode.unwrap_or_else(|| panic!("Unknown opcode at 0x{:04X}: 0x{:02X}", pc, byte))
     }
 

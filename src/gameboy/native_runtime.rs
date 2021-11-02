@@ -35,7 +35,7 @@ pub async fn run(window: Window, event_loop: EventLoop<()>, mut vm: VM) -> ! {
     let mut start = Instant::now();
     let mut fps_count = 0;
     let mut fps = 0;
-    
+
     window.request_redraw();
     event_loop.run(move |event, _, control_flow| {
         let now = Instant::now();
@@ -71,7 +71,7 @@ pub async fn run(window: Window, event_loop: EventLoop<()>, mut vm: VM) -> ! {
                 };
 
                 if let Some(screen) = &screen {
-                    fps_count+=1;
+                    fps_count += 1;
                     wgpu_state.render_frame(screen.as_ref(), fps);
                 }
             }

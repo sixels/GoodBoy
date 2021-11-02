@@ -3,7 +3,6 @@
 #![feature(try_blocks)]
 // #![feature(extern_types)]
 
-
 mod gameboy;
 
 mod utils;
@@ -31,8 +30,6 @@ pub fn main() {
     }
     #[cfg(target_arch = "wasm32")]
     {
-
-
         std::panic::set_hook(box |error| log::error!("Panicked: {}", error));
         console_log::init().unwrap();
 

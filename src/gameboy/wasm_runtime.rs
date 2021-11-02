@@ -6,9 +6,12 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::Window,
 };
-use winit_input_helper::WinitInputHelper; 
+use winit_input_helper::WinitInputHelper;
 
-use super::{common::{self, WgpuState}, ColorSchemeIter, IoEvent};
+use super::{
+    common::{self, WgpuState},
+    ColorSchemeIter, IoEvent,
+};
 
 use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
@@ -37,9 +40,8 @@ pub async fn run(window: Window, event_loop: EventLoop<()>, mut vm: VM) {
 
     let mut screen = None;
     window.request_redraw();
-    
-    event_loop.run(move |event, _, control_flow| {
 
+    event_loop.run(move |event, _, control_flow| {
         // VM loop
         {
             let clocks_to_run = (4194304.0 / 1000.0 * 11.0f64).round() as u32;

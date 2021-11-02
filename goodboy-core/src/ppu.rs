@@ -7,5 +7,5 @@ mod sprites;
 use color::Color;
 use sprites::Sprite;
 
-pub use gpu::Gpu;
 pub use color::ColorScheme;
+pub use gpu::Gpu;

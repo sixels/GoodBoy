@@ -3,8 +3,8 @@ mod system_bus;
 
 pub mod cartridge;
 
-pub use system_bus::Bus;
 pub use mbc::Mbc;
+pub use system_bus::Bus;
 
 bitflags::bitflags! {
     #[derive(Default)]

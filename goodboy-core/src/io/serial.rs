@@ -22,7 +22,7 @@ impl MemoryAccess for Serial {
         match addr {
             0xFF01 => self.data,
             0xFF02 => self.control,
-            _ => panic!("Invalid Serial address")
+            _ => panic!("Invalid Serial address"),
         }
     }
     fn mem_write(&mut self, addr: u16, value: u8) {
@@ -34,10 +34,9 @@ impl MemoryAccess for Serial {
 
                     self.data = value;
                     self.interrupt = true;
-
                 }
             }
-            _ => panic!("Invalid Serial address")
+            _ => panic!("Invalid Serial address"),
         }
     }
 }

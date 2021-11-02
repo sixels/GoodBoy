@@ -15,13 +15,13 @@ impl UnsignedValue {
     pub fn unwrap_u8(&self) -> u8 {
         match self {
             Self::U8(v) => *v,
-            _ => panic!("Unwrap failed")
+            _ => panic!("Unwrap failed"),
         }
     }
     pub fn unwrap_u16(&self) -> u16 {
         match self {
             Self::U16(v) => *v,
-            _ => panic!("Unwrap failed")
+            _ => panic!("Unwrap failed"),
         }
     }
 }
