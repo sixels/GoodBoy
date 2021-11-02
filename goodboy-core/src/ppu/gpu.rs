@@ -298,7 +298,7 @@ impl Gpu {
 
     fn update_palette(&mut self, palette: PaletteKind, value: u8) {
         fn get_palette_color(value: u8, i: usize) -> ColorType {
-            match (value >> 2 * i) & 0x03 {
+            match (value >> (i << 1)) & 0x03 {
                 0 => ColorType::White,
                 1 => ColorType::LightGray,
                 2 => ColorType::DarkGray,

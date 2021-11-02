@@ -14,7 +14,7 @@ impl Mbc for Mbc0 {
     fn rom_read(&self, addr: u16) -> u8 {
         self.rom[addr as usize]
     }
-    fn kind<'a>(&'a self) -> Option<super::MbcKind> {
+    fn kind(&self) -> Option<super::MbcKind<'_>> {
         Some(MbcKind::MBC0)
     }
 }

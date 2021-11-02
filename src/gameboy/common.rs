@@ -11,7 +11,7 @@ use goodboy_core::{
     vm::{Screen, SCREEN_HEIGHT, SCREEN_WIDTH, VM},
 };
 use wgpu::util::StagingBelt;
-use wgpu_glyph::{GlyphBrushBuilder, Section, Text, ab_glyph};
+use wgpu_glyph::{ab_glyph, GlyphBrushBuilder, Section, Text};
 use winit::{dpi::PhysicalSize, event::VirtualKeyCode, window::Window};
 use winit_input_helper::WinitInputHelper;
 
@@ -33,7 +33,7 @@ pub struct WgpuState {
 
     render_pipeline: wgpu::RenderPipeline,
 
-    size: PhysicalSize<u32>
+    size: PhysicalSize<u32>,
 }
 
 impl WgpuState {
@@ -286,7 +286,8 @@ impl WgpuState {
         // Prepare glyph_brush
         let inconsolata = ab_glyph::FontArc::try_from_slice(include_bytes!(
             "../../assets/fonts/ReturnofGanon.ttf"
-        )).unwrap();
+        ))
+        .unwrap();
 
         let glyph_brush = GlyphBrushBuilder::using_font(inconsolata).build(&device, texture_format);
 
@@ -382,10 +383,8 @@ pub fn vm_loop(mut vm: VM, screen_sender: SyncSender<Screen>, io: Receiver<IoEve
 
         clocks -= clocks_to_run;
 
-        if respect_timer {
-            if timer.recv().is_err() {
-                break;
-            }
+        if respect_timer && timer.recv().is_err() {
+            break;
         }
     }
 }

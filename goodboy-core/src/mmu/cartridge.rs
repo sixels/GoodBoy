@@ -19,10 +19,10 @@ impl Cartridge {
 
         let mode = match rom[GB_MODE_ADDR] {
             // CGB only
-            0xC0 => GbMode::CGB,
+            0xC0 => GbMode::Cgb,
             // game works on both CGB and DMG
             0x80 => GbMode::default(),
-            _ => GbMode::DMG,
+            _ => GbMode::Dmg,
         };
         log::info!("Gameboy mode: {:?}", mode);
 
@@ -43,7 +43,7 @@ impl Cartridge {
             log::info!("No information supplied for this MBC")
         }
 
-        let title_len = if mode == GbMode::DMG { 16 } else { 11 };
+        let title_len = if mode == GbMode::Dmg { 16 } else { 11 };
         let title = (0..title_len)
             .filter_map(|i| {
                 rom.get(TITLE_ADDR + i)

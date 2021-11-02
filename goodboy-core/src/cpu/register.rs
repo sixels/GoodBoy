@@ -49,7 +49,7 @@ impl Registers {
             f: Flags::from(0xB0),
         };
 
-        if gb_mode == GbMode::CGB {
+        if gb_mode == GbMode::Cgb {
             return Self { a: 0x11, ..regs };
         }
 

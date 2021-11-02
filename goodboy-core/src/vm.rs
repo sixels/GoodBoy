@@ -20,7 +20,7 @@ impl VM {
     }
 
     pub fn new_with_buffer(rom_buffer: &[u8]) -> Self {
-        let bus = Bus::new(&rom_buffer);
+        let bus = Bus::new(rom_buffer);
         Self { cpu: Cpu::new(bus) }
     }
 

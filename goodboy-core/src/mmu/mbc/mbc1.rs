@@ -20,7 +20,7 @@ pub struct Mbc1 {
 impl Mbc1 {
     pub fn new(rom: Vec<u8>, ram_size: usize) -> Box<dyn Mbc + 'static> {
         let (ram, save, capabilities) = match rom[MBC_KIND_ADDR] {
-            0x02 => (None, None, vec![MbcCapability::RAM]),
+            0x02 => (None, None, vec![MbcCapability::Ram]),
             0x03 => {
                 let path = PathBuf::from("save_file.gbsave");
                 let ram = match fs::read(&path) {
@@ -32,13 +32,13 @@ impl Mbc1 {
                 (
                     ram,
                     Some(path),
-                    vec![MbcCapability::RAM, MbcCapability::Battery],
+                    vec![MbcCapability::Ram, MbcCapability::Battery],
                 )
             }
             0x01 | _ => (Some(Vec::new()), None, vec![]),
         };
 
-        let ram = ram.unwrap_or(std::iter::repeat(0).take(ram_size).collect());
+        let ram = ram.unwrap_or_else(|| std::iter::repeat(0).take(ram_size).collect());
 
         Box::new(Mbc1 {
             capabilities,
@@ -60,7 +60,7 @@ impl Mbc1 {
 }
 
 impl Mbc for Mbc1 {
-    fn kind<'a>(&'a self) -> Option<super::MbcKind<'a>> {
+    fn kind(&self) -> Option<super::MbcKind<'_>> {
         Some(MbcKind::MBC1(&self.capabilities))
     }
 
@@ -68,7 +68,7 @@ impl Mbc for Mbc1 {
         let addr = if addr <= 0x3FFF {
             addr as usize
         } else {
-            self.rom_bank as usize * 0x4000 | ((addr as usize) & 0x3FFF)
+            (self.rom_bank as usize * 0x4000) | ((addr as usize) & 0x3FFF)
         };
 
         self.rom[addr]
@@ -120,7 +120,7 @@ impl Mbc for Mbc1 {
         } else {
             0
         };
-        let addr = addr & 0x1FFF | ram_bank as u16 * 0x2000;
+        let addr = addr & 0x1FFF | (ram_bank as u16 * 0x2000);
 
         self.ram[addr as usize] = value;
     }

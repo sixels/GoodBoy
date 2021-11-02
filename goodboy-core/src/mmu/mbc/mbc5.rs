@@ -24,7 +24,7 @@ impl Mbc5 {
             b @ 0x1B | b @ 0x1E => {
                 let mut capabilities = match b {
                     0x18 => vec![MbcCapability::Timer],
-                    0x1E | _ => vec![MbcCapability::Timer, MbcCapability::RAM],
+                    0x1E | _ => vec![MbcCapability::Timer, MbcCapability::Ram],
                 };
                 capabilities.push(MbcCapability::Battery);
 
@@ -44,7 +44,7 @@ impl Mbc5 {
             ),
         };
 
-        let ram = ram.unwrap_or(std::iter::repeat(0).take(ram_size).collect());
+        let ram = ram.unwrap_or_else(|| std::iter::repeat(0).take(ram_size).collect());
 
         Box::new(Mbc5 {
             capabilities,
@@ -66,7 +66,7 @@ impl Mbc5 {
 }
 
 impl Mbc for Mbc5 {
-    fn kind<'a>(&'a self) -> Option<super::MbcKind<'a>> {
+    fn kind(&self) -> Option<super::MbcKind<'_>> {
         Some(MbcKind::MBC5(&self.capabilities))
     }
 
@@ -76,7 +76,7 @@ impl Mbc for Mbc5 {
         let addr = if addr < 0x4000 {
             addr
         } else {
-            (addr & 0x3FFF) | self.rom_bank as usize * 0x4000
+            (addr & 0x3FFF) | (self.rom_bank as usize * 0x4000)
         };
         self.rom[addr]
     }
@@ -84,7 +84,7 @@ impl Mbc for Mbc5 {
         if !self.ram_enabled {
             return 0;
         }
-        self.ram[self.ram_bank * 0x2000 | ((addr as usize) & 0x1FFF)]
+        self.ram[(self.ram_bank * 0x2000) | ((addr as usize) & 0x1FFF)]
     }
     fn rom_write(&mut self, addr: u16, value: u8) {
         match addr {
@@ -100,10 +100,10 @@ impl Mbc for Mbc5 {
     }
 
     fn ram_write(&mut self, addr: u16, value: u8) {
-        if self.ram_enabled == false {
+        if !self.ram_enabled {
             return;
         }
-        self.ram[self.ram_bank * 0x2000 | ((addr as usize) & 0x1FFF)] = value;
+        self.ram[(self.ram_bank * 0x2000) | ((addr as usize) & 0x1FFF)] = value;
     }
 }
 

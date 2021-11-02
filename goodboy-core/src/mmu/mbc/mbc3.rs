@@ -30,8 +30,8 @@ impl Mbc3 {
             b @ 0x0F | b @ 0x10 | b @ 0x13 => {
                 let mut capabilities = match b {
                     0x0F => vec![MbcCapability::Timer],
-                    0x10 => vec![MbcCapability::Timer, MbcCapability::RAM],
-                    0x13 | _ => vec![MbcCapability::RAM],
+                    0x10 => vec![MbcCapability::Timer, MbcCapability::Ram],
+                    0x13 | _ => vec![MbcCapability::Ram],
                 };
                 capabilities.push(MbcCapability::Battery);
 
@@ -39,17 +39,17 @@ impl Mbc3 {
                 let ram = match fs::File::open(&save_path) {
                     Ok(mut f) => {
                         let mut ram: Vec<u8> = std::iter::repeat(0).take(ram_size).collect();
-                        f.read_to_end(&mut ram).and_then(|_| Ok(ram)).ok()
+                        f.read_to_end(&mut ram).map(|_| ram).ok()
                     }
                     Err(_) => None,
                 };
 
                 (ram, Some(save_path.as_ref().to_path_buf()), capabilities)
             }
-            0x12 => (None, None, vec![MbcCapability::RAM]),
+            0x12 => (None, None, vec![MbcCapability::Ram]),
             0x11 | _ => (Some(Vec::new()), None, vec![]),
         };
-        let ram = ram.unwrap_or(std::iter::repeat(0).take(ram_size).collect());
+        let ram = ram.unwrap_or_else(|| std::iter::repeat(0).take(ram_size).collect());
 
         Box::new(Mbc3 {
             capabilities,
@@ -66,7 +66,7 @@ impl Mbc3 {
 }
 
 impl Mbc for Mbc3 {
-    fn kind<'a>(&'a self) -> Option<super::MbcKind<'a>> {
+    fn kind(&self) -> Option<super::MbcKind<'_>> {
         Some(MbcKind::MBC3(&self.capabilities))
     }
 
@@ -74,7 +74,7 @@ impl Mbc for Mbc3 {
         let addr = if addr < 0x4000 {
             addr as usize
         } else {
-            (addr as usize & 0x3FFF) | self.rom_bank as usize * 0x4000
+            (addr as usize & 0x3FFF) | (self.rom_bank as usize * 0x4000)
         };
         self.rom.get(addr).copied().unwrap_or(0)
     }
@@ -82,13 +82,11 @@ impl Mbc for Mbc3 {
     fn ram_read(&self, addr: u16) -> u8 {
         if !self.ram_enabled {
             0
+        } else if self.ram_bank <= 3 {
+            let addr = addr as usize & 0x1FFF | (self.ram_bank as usize * 0x2000);
+            self.ram[addr]
         } else {
-            if self.ram_bank <= 3 {
-                let addr = addr as usize & 0x1FFF | self.ram_bank as usize * 0x2000;
-                self.ram[addr]
-            } else {
-                panic!("RTC not implemented")
-            }
+            panic!("RTC not implemented")
         }
     }
 
@@ -104,11 +102,9 @@ impl Mbc for Mbc3 {
             0x4000..=0x5FFF => self.ram_bank = value,
             0x6000..=0x7FFF => match value {
                 0 => {
-                    ()
                     // panic!("RTC not implemented");
                 }
                 1 => {
-                    ()
                     // panic!("RTC not implemented");
                 }
                 _ => (),
@@ -122,7 +118,7 @@ impl Mbc for Mbc3 {
             return;
         }
         if self.ram_bank <= 3 {
-            self.ram[self.ram_bank as usize * 0x2000 | ((addr as usize) & 0x1FFF)] = value;
+            self.ram[(self.ram_bank as usize * 0x2000) | ((addr as usize) & 0x1FFF)] = value;
         } else {
             panic!("Timer not implemented");
         }
@@ -135,11 +131,8 @@ impl Drop for Mbc3 {
             None => (),
             Some(ref path) => {
                 log::info!("Saving game to file {:?}", path);
-                match fs::File::create(path) {
-                    Ok(mut f) => {
-                        f.write_all(&self.ram).ok();
-                    }
-                    Err(_) => (),
+                if let Ok(mut f) = fs::File::create(path) {
+                    f.write_all(&self.ram).ok();
                 }
             }
         }

@@ -46,10 +46,10 @@ pub fn create_window(
 
     let size = default_size.to_physical::<f64>(hidpi_factor);
 
-    return (
+    (
         window,
         size.width.round() as u32,
         size.height.round() as u32,
         hidpi_factor,
-    );
+    )
 }
