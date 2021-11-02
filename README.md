@@ -18,8 +18,8 @@ This emulator is not perfect and lack some features. Core features that are wort
 - Pass Blargg's cpu_instrs tests
 - Needs a little more improvements to pass dmg_acid test, but is still doing well
 - Joypad implemented
-- Support to MBC0, MBC1, MBC3 (without timer) and MBC5 (without rumble) cartridge
-- Runs on browser (Experimental not ready yet)
+- Support to MBC0, MBC1, MBC3 (without timer) and MBC5 (without rumble) cartridges
+- Runs on browser (Experimental, not ready yet)
 
 There are also some non-core features implemented just for fun:
 
@@ -31,7 +31,6 @@ Planned features:
 - CLI arguments
 - Quick save/load state
 - Implement MBC3 timer
-- SGB support (Super Game Boy)
 - CGB support (Game Boy Color)
 - Sound support
 
@@ -115,13 +114,13 @@ run with:
 
 ## Running on browser
 
-Use my script to compile the project to wasm32 (you will need to install [wasm-bindgen cli](https://rustwasm.github.io/wasm-bindgen/reference/cli.html) before):
+Use my `build_wasm.sh` script to compile the project to wasm32 (you will need to install [wasm-bindgen cli](https://rustwasm.github.io/wasm-bindgen/reference/cli.html) before):
 
 ```sh
 sh ./build_wasm.sh release
 ```
 
-You can now host the directory target/wasm_bindings (Here I'm using Python's http module
+You can now host the directory target/wasm_bindings (here I'm using Python's http module
 because of its simplicity, but you can use whatever works for you):
 
 ```sh
