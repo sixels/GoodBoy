@@ -72,61 +72,83 @@ impl Gpu {
             return;
         }
 
-        let mut clocks = clocks;
+        let clocks = self.clocks + clocks;
 
-        while clocks > 0 {
-            let current_clock = if clocks >= 80 { 80 } else { clocks };
-
-            self.clocks += current_clock as u32;
-            clocks -= current_clock;
-
-            if self.clocks >= 456 {
-                self.clocks -= 456;
-
-                self.scan_line = (self.scan_line + 1) % 154;
-
-                self.interrupt_lyc();
-
-                if self.scan_line >= 144 && self.mode != GpuMode::VBlank {
-                    self.update_mode(GpuMode::VBlank)
+        let (clocks, mode) = match self.mode {
+            GpuMode::OAMSearch => {
+                if clocks >= 80 {
+                    (0, GpuMode::PixelTransfer)
+                } else {
+                    (clocks, self.mode)
                 }
             }
+            GpuMode::PixelTransfer => {
+                if clocks >= 172 {
+                    self.render_scan_line();
 
-            if self.scan_line < 144 {
-                if self.clocks <= 80 && self.mode != GpuMode::OAMSearch {
-                    self.update_mode(GpuMode::OAMSearch)
-                } else if self.clocks <= (80 + 172) && self.mode != GpuMode::PixelTransfer {
-                    self.update_mode(GpuMode::PixelTransfer)
-                } else if self.mode != GpuMode::HBlank {
-                    self.update_mode(GpuMode::HBlank)
+                    if self.lcd_status.hblank_check() {
+                        self.interrupt_lcd = true;
+                    }
+
+                    (0, GpuMode::HBlank)
+                } else {
+                    (clocks, GpuMode::PixelTransfer)
                 }
             }
-        }
+            GpuMode::HBlank => {
+                if clocks >= 204 {
+                    self.scan_line += 1;
+
+                    // ly becomes 144 before vblank interrupt
+                    if self.scan_line > 143 {
+                        self.vblanked = true;
+                        self.interrupt_vblank = true;
+
+                        if self.lcd_status.vblank_check() {
+                            self.interrupt_lcd = true;
+                        }
+
+                        (0, GpuMode::VBlank)
+                    } else {
+                        if self.lcd_status.hblank_check() {
+                            self.interrupt_lcd = true;
+                        }
+
+                        (0, GpuMode::OAMSearch)
+                    }
+                } else {
+                    (clocks, GpuMode::HBlank)
+                }
+            }
+            GpuMode::VBlank => {
+                if clocks >= 456 {
+                    self.scan_line += 1;
+
+                    if self.scan_line > 153 {
+                        self.scan_line = 0;
+
+                        if self.lcd_status.oam_check() {
+                            self.interrupt_lcd = true;
+                        }
+
+                        (0, GpuMode::OAMSearch)
+                    } else {
+                        (0, GpuMode::VBlank)
+                    }
+                } else {
+                    (clocks, GpuMode::VBlank)
+                }
+            }
+        };
+
+        self.interrupt_lyc();
+
+        self.clocks = clocks;
+        self.mode = mode;
     }
 
     fn interrupt_lyc(&mut self) {
         if self.lcd_status.scanline_check() && self.scan_line_check == self.scan_line {
-            self.interrupt_lcd = true
-        }
-    }
-
-    fn update_mode(&mut self, mode: GpuMode) {
-        self.mode = mode;
-
-        if match self.mode {
-            GpuMode::HBlank => {
-                self.render_scan_line();
-                self.lcd_status.hblank_check()
-            }
-            GpuMode::VBlank => {
-                self.interrupt_vblank = true;
-                self.vblanked = true;
-
-                self.lcd_status.vblank_check()
-            }
-            GpuMode::OAMSearch => self.lcd_status.oam_check(),
-            _ => false,
-        } {
             self.interrupt_lcd = true
         }
     }

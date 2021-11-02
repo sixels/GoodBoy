@@ -13,7 +13,12 @@ else
 fi
 
 echo "Generating wasm bindings..."
-wasm-bindgen --target web --out-dir target/wasm_bindings target/wasm32-unknown-unknown/${BUILD_TYPE}/goodboy.wasm
+wasm-bindgen \
+    --target web \
+    --no-typescript \
+    --out-dir target/wasm_bindings \
+    target/wasm32-unknown-unknown/${BUILD_TYPE}/goodboy.wasm
+
 cp web/index.html target/wasm_bindings/index.html
 
 

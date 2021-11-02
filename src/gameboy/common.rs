@@ -10,7 +10,9 @@ use goodboy_core::{
     io::JoypadButton,
     vm::{Screen, SCREEN_HEIGHT, SCREEN_WIDTH, VM},
 };
-use winit::{event::VirtualKeyCode, window::Window};
+use wgpu::util::StagingBelt;
+use wgpu_glyph::{GlyphBrushBuilder, Section, Text, ab_glyph};
+use winit::{dpi::PhysicalSize, event::VirtualKeyCode, window::Window};
 use winit_input_helper::WinitInputHelper;
 
 use super::{ColorSchemeIter, IoEvent};
@@ -26,17 +28,20 @@ pub struct WgpuState {
     frame_view: wgpu::TextureView,
     frame_bind_group: wgpu::BindGroup,
 
+    staging_belt: wgpu::util::StagingBelt,
+    glyph_brush: wgpu_glyph::GlyphBrush<()>,
+
     render_pipeline: wgpu::RenderPipeline,
+
+    size: PhysicalSize<u32>
 }
 
 impl WgpuState {
-    pub fn render_frame(&self, frame_data: &[u8]) {
+    pub fn render_frame(&mut self, frame_data: &[u8], fps: u16) {
         // render the screen
         let mut encoder = self
             .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Redraw"),
-            });
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
 
         // Get the next frame
         let frame = self
@@ -94,35 +99,27 @@ impl WgpuState {
 
         // render the FPS counter
         {
-            // glyph_brush.queue(Section {
-            //     screen_position: (7.0, 7.0),
-            //     bounds: (size.width as f32, size.height as f32),
-            //     text: vec![Text::new(&text_fps)
-            //         .with_color([0.0, 0.0, 0.0, 1.0])
-            //         .with_scale(30.0)],
-            //     ..Section::default()
-            // });
-            // glyph_brush.queue(Section {
-            //     screen_position: (5.0, 5.0),
-            //     bounds: (size.width as f32, size.height as f32),
-            //     text: vec![Text::new(&text_fps)
-            //         .with_color([1.0, 1.0, 1.0, 1.0])
-            //         .with_scale(30.0)],
-            //     ..Section::default()
-            // });
+            self.glyph_brush.queue(Section {
+                screen_position: (5.0, 5.0),
+                bounds: (self.size.width as f32, self.size.height as f32),
+                text: vec![Text::new(&format!("FPS: {}", fps))
+                    .with_color([1.0, 1.0, 1.0, 1.0])
+                    .with_scale(30.0)],
+                ..Section::default()
+            });
 
-            // glyph_brush
-            //     .draw_queued(
-            //         &device,
-            //         &mut staging_belt,
-            //         &mut encoder,
-            //         &view,
-            //         size.width,
-            //         size.height,
-            //     )
-            //     .expect("Draw queued");
+            self.glyph_brush
+                .draw_queued(
+                    &self.device,
+                    &mut self.staging_belt,
+                    &mut encoder,
+                    &view,
+                    self.size.width,
+                    self.size.height,
+                )
+                .expect("Draw queued");
 
-            // staging_belt.finish();
+            self.staging_belt.finish();
         }
 
         self.queue.submit(Some(encoder.finish()));
@@ -131,7 +128,10 @@ impl WgpuState {
         // pollster::block_on(staging_belt.recall());
     }
 
-    pub fn resize(&self, width: u32, height: u32) {
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.size.width = width;
+        self.size.height = height;
+
         self.surface.configure(
             &self.device,
             &wgpu::SurfaceConfiguration {
@@ -281,6 +281,15 @@ impl WgpuState {
             })
         };
 
+        let staging_belt = StagingBelt::new(1024);
+
+        // Prepare glyph_brush
+        let inconsolata = ab_glyph::FontArc::try_from_slice(include_bytes!(
+            "../../assets/fonts/ReturnofGanon.ttf"
+        )).unwrap();
+
+        let glyph_brush = GlyphBrushBuilder::using_font(inconsolata).build(&device, texture_format);
+
         WgpuState {
             instance,
             surface,
@@ -292,7 +301,12 @@ impl WgpuState {
             frame_bind_group,
             frame_view,
 
+            staging_belt,
+            glyph_brush,
+
             render_pipeline,
+
+            size,
         }
     }
 }
@@ -333,7 +347,6 @@ pub fn handle_input(input: &mut WinitInputHelper, io_sender: &Sender<IoEvent>, c
 }
 
 pub fn vm_loop(mut vm: VM, screen_sender: SyncSender<Screen>, io: Receiver<IoEvent>) {
-    println!("a");
     let mut clocks = 0;
     let clocks_to_run = (4194304.0 / 1000.0 * 12f64).round() as u32;
 
@@ -345,7 +358,6 @@ pub fn vm_loop(mut vm: VM, screen_sender: SyncSender<Screen>, io: Receiver<IoEve
             clocks += vm.tick() as u32;
 
             if vm.check_vblank() {
-                // println!("b");
                 if let Err(TrySendError::Disconnected(..)) = screen_sender.try_send(vm.get_screen())
                 {
                     break;

@@ -1,6 +1,8 @@
 #![feature(stmt_expr_attributes)]
 #![feature(box_syntax)]
 #![feature(try_blocks)]
+// #![feature(extern_types)]
+
 
 mod gameboy;
 
@@ -15,6 +17,8 @@ pub fn main() {
 
     #[cfg(not(target_arch = "wasm32"))]
     {
+        env_logger::init();
+
         // Get the ROM path from the first argument
         let mut args = std::env::args().skip(1);
         let rom_path = args
@@ -27,6 +31,8 @@ pub fn main() {
     }
     #[cfg(target_arch = "wasm32")]
     {
+
+
         std::panic::set_hook(box |error| log::error!("Panicked: {}", error));
         console_log::init().unwrap();
 
