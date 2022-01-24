@@ -23,6 +23,8 @@ fn vs_main(
 var r_color: texture_2d<f32>;
 [[group(0), binding(1)]]
 var r_sampler: sampler;
+[[group(0), binding(2)]]
+var ads: texture_2d<f32>;
 
 [[stage(fragment)]]
 fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {

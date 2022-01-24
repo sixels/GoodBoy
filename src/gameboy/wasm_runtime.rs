@@ -1,4 +1,10 @@
 use std::sync::mpsc;
+#[cfg(not(target_arch = "wasm32"))]
+use std::{
+    thread,
+    time::{Duration, Instant},
+};
+
 
 use goodboy_core::vm::VM;
 use winit::{
@@ -6,6 +12,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::Window,
 };
+
 use winit_input_helper::WinitInputHelper;
 
 use super::{
@@ -13,7 +20,9 @@ use super::{
     ColorSchemeIter, IoEvent,
 };
 
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 extern "C" {
     type Date;
@@ -22,27 +31,49 @@ extern "C" {
     pub fn now() -> f64;
 }
 
+#[cfg(target_arch = "wasm32")]
+fn now() -> f64 {
+    Date::now()
+}
+#[cfg(target_arch = "wasm32")]
+fn one_sec() -> f64 {
+    1000.0
+}
+#[cfg(not(target_arch = "wasm32"))]
+fn now() -> Instant {
+    Instant::now()
+}
+#[cfg(not(target_arch = "wasm32"))]
+fn one_sec() -> Duration {
+    Duration::from_secs(1)
+}
+
 pub async fn run(window: Window, event_loop: EventLoop<()>, mut vm: VM) {
     let mut input = WinitInputHelper::new();
 
     let mut wgpu_state = WgpuState::new(&window).await;
 
+    let (screen_sender, screen_receiver) = mpsc::sync_channel(1);
     let (io_sender, io_receiver) = mpsc::channel();
 
     let mut color_schemes_iter: ColorSchemeIter = box super::COLOR_SCHEMES.iter().copied().cycle();
     vm.set_color_scheme(color_schemes_iter.next().unwrap());
 
+    #[cfg(not(target_arch = "wasm32"))]
+    let mut vm_loop_handle = Some(thread::spawn(move || {
+        common::vm_loop(vm, screen_sender, io_receiver);
+    }));
+
     let mut clocks = 0;
 
-    let mut start = Date::now();
+    let mut start = now();
     let mut fps_count = 0;
     let mut fps = 0;
 
-    let mut screen = None;
     window.request_redraw();
-
     event_loop.run(move |event, _, control_flow| {
         // VM loop
+        #[cfg(target_arch = "wasm32")]
         {
             let clocks_to_run = (4194304.0 / 1000.0 * 11.0f64).round() as u32;
 
@@ -50,7 +81,8 @@ pub async fn run(window: Window, event_loop: EventLoop<()>, mut vm: VM) {
                 clocks += vm.tick() as u32;
 
                 if vm.check_vblank() {
-                    screen = Some(vm.get_screen());
+                    let _ = screen_receiver.try_recv();
+                    screen_sender.send(vm.get_screen()).ok();
                 }
             }
             clocks -= clocks_to_run;
@@ -69,8 +101,8 @@ pub async fn run(window: Window, event_loop: EventLoop<()>, mut vm: VM) {
             }
         }
 
-        let now = Date::now();
-        if now > start + 1000.0 {
+        let now = now();
+        if now > start + one_sec() {
             start = now;
             fps = fps_count;
             fps_count = 0
@@ -92,7 +124,16 @@ pub async fn run(window: Window, event_loop: EventLoop<()>, mut vm: VM) {
             }
 
             Event::RedrawRequested(..) | Event::MainEventsCleared => {
-                if let Some(screen) = screen.take() {
+                let screen = match screen_receiver.try_recv() {
+                    Ok(data) => Some(data),
+                    Err(mpsc::TryRecvError::Empty) => None,
+                    Err(_) => {
+                        *control_flow = ControlFlow::Exit;
+                        None
+                    }
+                };
+
+                if let Some(screen) = &screen {
                     fps_count += 1;
                     wgpu_state.render_frame(screen.as_ref(), fps);
                 }

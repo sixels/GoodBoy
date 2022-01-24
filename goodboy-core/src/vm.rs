@@ -24,21 +24,6 @@ impl VM {
         Self { cpu: Cpu::new(bus) }
     }
 
-    // pub fn new_blank<B, P>(bios_path: B, rom_path: P) -> io::Result<Self>
-    // where
-    //     B: AsRef<Path>,
-    //     P: AsRef<Path>,
-    // {
-    //     let mut bios = fs::read(bios_path)?;
-    //     let rom_buffer = fs::read(rom_path)?;
-
-    //     bios.extend(&rom_buffer[0x100..]);
-
-    //     let bus = Bus::new_blank(&bios);
-
-    //     Ok(Self { cpu: Cpu::new_blank(bus) })
-    // }
-
     pub fn tick(&mut self) -> u32 {
         self.cpu.run()
     }

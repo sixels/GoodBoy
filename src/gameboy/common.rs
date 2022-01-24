@@ -347,9 +347,9 @@ pub fn handle_input(input: &mut WinitInputHelper, io_sender: &Sender<IoEvent>, c
 
 pub fn vm_loop(mut vm: VM, screen_sender: SyncSender<Screen>, io: Receiver<IoEvent>) {
     let mut clocks = 0;
-    let clocks_to_run = (4194304.0 / 1000.0 * 12f64).round() as u32;
+    let clocks_to_run = (4194304.0 / 1000.0 * 16f64).round() as u32;
 
-    let timer = speed_limit(Duration::from_millis(11));
+    let timer = speed_limit(Duration::from_millis(15));
     let mut respect_timer = true;
 
     'vm_loop: loop {

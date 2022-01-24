@@ -1,4 +1,3 @@
-#![feature(destructuring_assignment)]
 #![feature(never_type)]
 #![feature(box_syntax)]
 

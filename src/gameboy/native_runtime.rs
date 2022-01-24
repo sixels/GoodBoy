@@ -1,12 +1,16 @@
 use std::{
     sync::mpsc,
+};
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::{
     thread,
     time::{Duration, Instant},
 };
 
 use goodboy_core::vm::VM;
 use winit::{
-    event::{Event, VirtualKeyCode, WindowEvent},
+    event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::Window,
 };
@@ -79,9 +83,9 @@ pub async fn run(window: Window, event_loop: EventLoop<()>, mut vm: VM) -> ! {
         };
 
         if *control_flow != ControlFlow::Exit && input.update(&event) {
-            if input.held_control() && input.key_pressed(VirtualKeyCode::Q) {
-                *control_flow = ControlFlow::Exit;
-            }
+            // if input.held_control() && input.key_pressed(VirtualKeyCode::Q) {
+            //     *control_flow = ControlFlow::Exit;
+            // }
 
             if common::handle_input(&mut input, &io_sender, Some(&mut color_schemes_iter)).is_err()
             {

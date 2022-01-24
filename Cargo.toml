@@ -7,6 +7,10 @@ resolver = "2"
 [workspace]
 members = ["goodboy-core"]
 
+[profile.release]
+codegen-units=1
+incremental=true
+
 [features]
 fps = []
 
