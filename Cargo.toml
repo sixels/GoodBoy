@@ -1,44 +1,20 @@
 [package]
 name = "goodboy"
 version = "0.4.0"
-edition = "2018"
-resolver = "2"
+edition = "2021"
 
 [workspace]
 members = ["goodboy-core"]
 
 [profile.release]
-codegen-units=1
 incremental=true
+# opt-level = 2
 
-[features]
-fps = []
+
+[lib]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 goodboy_core = { path = "./goodboy-core" }
-winit_input_helper = "0.10"
-winit = "0.25"
-log = "0.4"
-lazy_static = "1.4"
-wgpu = "0.11.0"
-wgpu_glyph = { git = "https://github.com/pacmancoder/wgpu_glyph", branch = "issue-report/wasm32-text-rendering" }
+eframe = "0.16.0"
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-# wgpu_glyph = "*"
-env_logger = "0.9"
-pollster = "*"
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-winit = { version = "0.25", features = ["web-sys"] }
-web-sys = { version = "0.3.55", features = [
-    'CanvasRenderingContext2d',
-    'Document',
-    'Element',
-    'HtmlCanvasElement',
-    'Window',
-    'ImageData',
-] }
-wasm-bindgen = "0.2.78"
-wasm-bindgen-futures = "0.4.28"
-console_log = "0.2"
-wgpu = { version = "0.11", features = ["webgl"] }

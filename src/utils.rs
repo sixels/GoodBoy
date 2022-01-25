@@ -1,55 +1,119 @@
-use goodboy_core::vm::{SCREEN_HEIGHT, SCREEN_WIDTH};
-use winit::{
-    dpi::{LogicalPosition, LogicalSize, PhysicalSize},
-    event_loop::EventLoop,
-};
+use eframe::egui;
+use goodboy_core::io::JoypadButton;
+use std::sync::mpsc;
 
-pub fn create_window(
-    title: &str,
-    event_loop: &EventLoop<()>,
-) -> (winit::window::Window, u32, u32, f64) {
-    // Create a hidden window so we can estimate a good default window size
-    let window = winit::window::WindowBuilder::new()
-        .with_visible(false)
-        .with_title(title)
-        .build(event_loop)
-        .unwrap();
+#[cfg(target_arch = "wasm32")]
+use eframe::wasm_bindgen::{self, prelude::*};
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::{self, Instant};
 
-    let width = SCREEN_WIDTH as f64;
-    let height = SCREEN_HEIGHT as f64;
+use crate::app::IoEvent;
 
-    let hidpi_factor = window.scale_factor();
+#[rustfmt::skip]
+pub fn handle_input(input: &egui::InputState, io_sender: mpsc::Sender<IoEvent>) {
+    fn send_keys(input: &egui::InputState, io_sender: mpsc::Sender<IoEvent>) -> Result<(), mpsc::SendError<IoEvent>> {
+        if input.key_pressed(egui::Key::Delete) { io_sender.send(IoEvent::ToggleFPSLimit)?; }
 
-    // Get dimensions
-    let (monitor_width, monitor_height) = {
-        if let Some(monitor) = window.current_monitor() {
-            let size = monitor.size().to_logical(hidpi_factor);
-            (size.width, size.height)
-        } else {
-            (width, height)
+        if input.key_pressed(egui::Key::ArrowRight) { io_sender.send(IoEvent::ButtonPressed(JoypadButton::Right))?;  }
+        if input.key_pressed(egui::Key::ArrowLeft)  { io_sender.send(IoEvent::ButtonPressed(JoypadButton::Left))?;   }
+        if input.key_pressed(egui::Key::ArrowUp)    { io_sender.send(IoEvent::ButtonPressed(JoypadButton::Up))?;     }
+        if input.key_pressed(egui::Key::ArrowDown)  { io_sender.send(IoEvent::ButtonPressed(JoypadButton::Down))?;   }
+        if input.key_pressed(egui::Key::Z)          { io_sender.send(IoEvent::ButtonPressed(JoypadButton::A))?;      }
+        if input.key_pressed(egui::Key::X)          { io_sender.send(IoEvent::ButtonPressed(JoypadButton::B))?;      }
+        if input.key_pressed(egui::Key::Space)      { io_sender.send(IoEvent::ButtonPressed(JoypadButton::Select))?; }
+        if input.key_pressed(egui::Key::Enter)      { io_sender.send(IoEvent::ButtonPressed(JoypadButton::Start))?;  }
+
+        if input.key_released(egui::Key::ArrowRight) { io_sender.send(IoEvent::ButtonReleased(JoypadButton::Right))?;  }
+        if input.key_released(egui::Key::ArrowLeft)  { io_sender.send(IoEvent::ButtonReleased(JoypadButton::Left))?;   }
+        if input.key_released(egui::Key::ArrowUp)    { io_sender.send(IoEvent::ButtonReleased(JoypadButton::Up))?;     }
+        if input.key_released(egui::Key::ArrowDown)  { io_sender.send(IoEvent::ButtonReleased(JoypadButton::Down))?;   }
+        if input.key_released(egui::Key::Z)          { io_sender.send(IoEvent::ButtonReleased(JoypadButton::A))?;      }
+        if input.key_released(egui::Key::X)          { io_sender.send(IoEvent::ButtonReleased(JoypadButton::B))?;      }
+        if input.key_released(egui::Key::Space)      { io_sender.send(IoEvent::ButtonReleased(JoypadButton::Select))?; }
+        if input.key_released(egui::Key::Enter)      { io_sender.send(IoEvent::ButtonReleased(JoypadButton::Start))?;  }
+        Ok(())
+    }
+    send_keys(input, io_sender).ok();
+}
+
+trait TimeUnit<T> {
+    fn now() -> Self
+    where
+        Self: Sized;
+
+    fn one_sec() -> T
+    where
+        Self: Sized;
+}
+
+#[cfg(target_arch = "wasm32")]
+type Time = f64;
+#[cfg(not(target_arch = "wasm32"))]
+type Time = Instant;
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+extern "C" {
+    type Date;
+
+    #[wasm_bindgen(static_method_of = Date)]
+    pub fn now() -> f64;
+}
+
+#[cfg(target_arch = "wasm32")]
+impl TimeUnit<f64> for f64 {
+    fn now() -> f64 {
+        Date::now()
+    }
+
+    fn one_sec() -> f64 {
+        1000.0
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl TimeUnit<time::Duration> for Instant {
+    fn now() -> Self {
+        Instant::now()
+    }
+
+    fn one_sec() -> time::Duration {
+        time::Duration::from_secs(1)
+    }
+}
+
+pub struct Fps {
+    fps: usize,
+    last_fps: usize,
+
+    start: Time,
+}
+
+impl Fps {
+    pub fn update(&mut self) -> usize {
+        let now = Time::now();
+        if now > self.start + Time::one_sec() {
+            self.last_fps = self.fps;
+            self.fps = 0;
+
+            self.start = now;
         }
-    };
-    let scale = (monitor_height / height * 2.0 / 3.0).round().max(1.0);
 
-    // Resize, center, and display the window
-    let min_size: winit::dpi::LogicalSize<f64> =
-        PhysicalSize::new(width, height).to_logical(hidpi_factor);
-    let default_size = LogicalSize::new(width * scale, height * scale);
-    let center = LogicalPosition::new(
-        (monitor_width - width * scale) / 2.0,
-        (monitor_height - height * scale) / 2.0,
-    );
-    window.set_inner_size(default_size);
-    window.set_min_inner_size(Some(min_size));
-    window.set_outer_position(center);
-    window.set_visible(true);
+        self.fps += 1;
+        self.last_fps
+    }
 
-    let size = default_size.to_physical::<f64>(hidpi_factor);
+    pub fn counter(&self) -> usize {
+        self.last_fps
+    }
+}
 
-    (
-        window,
-        size.width.round() as u32,
-        size.height.round() as u32,
-        hidpi_factor,
-    )
+impl Default for Fps {
+    fn default() -> Self {
+        Self {
+            fps: Default::default(),
+            last_fps: Default::default(),
+            start: Time::now(),
+        }
+    }
 }

@@ -7,10 +7,21 @@
   />
   <meta name="description" content="GoodBoy" />
   <link rel="stylesheet" href="style.css" />
+
+  <script>
+    // register ServiceWorker
+    window.onload = () => {
+      "use strict";
+
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("./sw.js");
+      }
+    };
+  </script>
 </head>
 
 <body>
-  <div class="gameboy">
+  <!-- <div class="gameboy">
     <div class="left_container">
       <div class="directions">
         <div class="middle"></div>
@@ -19,29 +30,33 @@
         <div class="up" id="btn_up"></div>
         <div class="down" id="btn_down"></div>
       </div>
-    </div>
+    </div> -->
 
-    <div class="screen_container">
-      <div id="screen">
-        <!-- canvas goes here -->
-      </div>
-    </div>
+    <!-- <div class="screen_container">
+      <div id="screen"> -->
+        <canvas id="goodboy"> </canvas>
+      <!-- </div> -->
+    <!-- </div> -->
 
-    <div class="right_container">
+    <!-- <div class="right_container">
       <div class="actions">
         <div class="b"><button id="btn-b"></button></div>
         <div class="a"><button id="btn-a"></button></div>
       </div>
     </div>
-  </div>
-
-  <!-- <script src="main.js"></script> -->
+  </div> -->
 
   <script type="module">
-    import init from "./goodboy.js";
-    window.addEventListener("load", () => {
-      init();
-    });
+    import init, { start } from "./goodboy.js";
+
+    init().then(on_wasm_loaded).catch(console.error);
+
+    function on_wasm_loaded() {
+      console.info("loaded wasm, starting Good Boy...");
+      start("goodboy");
+      console.info("Good Boy started!");
+      // document.getElementById("loading").remove();
+    }
   </script>
 </body>
 <html></html>
