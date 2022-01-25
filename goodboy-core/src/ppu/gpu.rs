@@ -291,8 +291,8 @@ impl Gpu {
 
     fn set_color(&mut self, x: usize, color: Color) {
         let y = self.scan_line as usize;
-        for (i, rgb) in color.as_slice().iter().enumerate() {
-            self.screen_buffer[y * SCREEN_WIDTH * 4 + x * 4 + i] = *rgb;
+        for (i, rgba) in color.as_slice().iter().enumerate() {
+            self.screen_buffer[y * SCREEN_WIDTH * 4 + x * 4 + i] = *rgba;
         }
     }
 
@@ -409,9 +409,9 @@ impl MemoryAccess for Gpu {
 impl Default for Gpu {
     fn default() -> Gpu {
         Gpu {
-            vram: box [0; VRAM_SIZE],
+            vram: Box::new([0; VRAM_SIZE]),
             oam: [0; OAM_SIZE],
-            screen_buffer: box [0x00; SCREEN_WIDTH * SCREEN_HEIGHT * 4],
+            screen_buffer: Box::new([0x00; SCREEN_WIDTH * SCREEN_HEIGHT * 4]),
 
             lcd_control: LCDControl::default(),
             lcd_status: LCDStatus::default(),

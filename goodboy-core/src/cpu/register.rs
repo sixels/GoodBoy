@@ -71,15 +71,21 @@ impl Registers {
 
     #[inline(always)]
     pub fn set_bc(&mut self, value: u16) {
-        [self.b, self.c] = value.to_be_bytes();
+        let bytes = value.to_be_bytes();
+        self.b = bytes[0];
+        self.c = bytes[1];
     }
     #[inline(always)]
     pub fn set_de(&mut self, value: u16) {
-        [self.d, self.e] = value.to_be_bytes();
+        let bytes = value.to_be_bytes();
+        self.d = bytes[0];
+        self.e = bytes[1];
     }
     #[inline(always)]
     pub fn set_hl(&mut self, value: u16) {
-        [self.h, self.l] = value.to_be_bytes();
+        let bytes = value.to_be_bytes();
+        self.h = bytes[0];
+        self.l = bytes[1];
     }
     #[inline(always)]
     pub fn set_af(&mut self, value: u16) {

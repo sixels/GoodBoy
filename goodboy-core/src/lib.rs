@@ -1,6 +1,3 @@
-#![feature(never_type)]
-#![feature(box_syntax)]
-
 pub mod cpu;
 mod gb_mode;
 pub mod io;
