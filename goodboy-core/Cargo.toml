@@ -1,8 +1,7 @@
 [package]
 name = "goodboy_core"
 version = "0.1.0"
-edition = "2018"
-resolver = "2"
+edition = "2021"
 
 [dependencies]
 bitflags = "1.2"
