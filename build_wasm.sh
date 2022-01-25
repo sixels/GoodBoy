@@ -1,25 +1,80 @@
-#!/usr/bin/env sh
+#!/bin/bash
+set -eu
+script_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
+cd "$script_path"
 
-set -e
+OPEN=false
+FAST=false
 
-BUILD_TYPE=""
-test "${1}" = "release" && BUILD_TYPE="release" || BUILD_TYPE="debug"
+while test $# -gt 0; do
+  case "$1" in
+    -h|--help)
+      echo "build_wasm.sh [--fast] [--open]"
+      echo "  --fast: skip optimization step"
+      echo "  --open: open the result in a browser"
+      exit 0
+      ;;
+    --fast)
+      shift
+      FAST=true
+      ;;
+    --open)
+      shift
+      OPEN=true
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
 
-echo "Compiling for ${BUILD_TYPE}..."
-if [[ ${BUILD_TYPE} == "release" ]]; then
-    cargo build --target wasm32-unknown-unknown --release
-else
-    cargo build --target wasm32-unknown-unknown
+# ./setup_web.sh # <- call this first!
+
+FOLDER_NAME=${PWD##*/}
+CRATE_NAME=$FOLDER_NAME # assume crate name is the same as the folder name
+CRATE_NAME_SNAKE_CASE="${CRATE_NAME//-/_}" # for those who name crates with-kebab-case
+
+# This is required to enable the web_sys clipboard API which egui_web uses
+# https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.Clipboard.html
+# https://rustwasm.github.io/docs/wasm-bindgen/web-sys/unstable-apis.html
+export RUSTFLAGS=--cfg=web_sys_unstable_apis
+
+# Clear output from old stuff:
+OUT_DIR=docs
+rm -rf ${OUT_DIR}/
+
+echo "Building rust…"
+BUILD=release
+cargo build -p ${CRATE_NAME} --release --lib --target wasm32-unknown-unknown
+
+
+# Get the output directory (in the workspace it is in another location)
+TARGET=`cargo metadata --format-version=1 | jq --raw-output .target_directory`
+
+echo "Generating JS bindings for wasm…"
+TARGET_NAME="${CRATE_NAME_SNAKE_CASE}.wasm"
+wasm-bindgen "${TARGET}/wasm32-unknown-unknown/${BUILD}/${TARGET_NAME}" \
+  --out-dir ${OUT_DIR} --target web --no-typescript
+
+if [ "${FAST}" = false ]; then
+  echo "Optimizing wasm…"
+  # to get wasm-opt:  apt/brew/dnf install binaryen
+  wasm-opt ${OUT_DIR}/${CRATE_NAME}_bg.wasm -O2 --fast-math -o ${OUT_DIR}/${CRATE_NAME}_bg.wasm # add -g to get debug symbols
 fi
 
-echo "Generating wasm bindings..."
-wasm-bindgen \
-    --target web \
-    --no-typescript \
-    --out-dir target/wasm_bindings \
-    target/wasm32-unknown-unknown/${BUILD_TYPE}/goodboy.wasm
+cp assets/templates/* ${OUT_DIR}
 
-cp web/* target/wasm_bindings/
+echo "Finished: ${OUT_DIR}/${CRATE_NAME_SNAKE_CASE}.wasm"
 
-
-echo 'All done! run `python3 -m http.server --directory target/wasm_bindings 8080` to start a server'
+if [ "${OPEN}" = true ]; then
+  if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    # Linux, ex: Fedora
+    xdg-open http://localhost:8080/index.html
+  elif [[ "$OSTYPE" == "msys" ]]; then
+    # Windows
+    start http://localhost:8080/index.html
+  else
+    # Darwin/MacOS, or something else
+    open http://localhost:8080/index.html
+  fi
+fi
