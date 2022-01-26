@@ -1,21 +1,28 @@
-use std::{sync::mpsc, thread, time::Duration};
+use std::sync::mpsc;
+#[cfg(not(target_arch = "wasm32"))]
+use std::thread;
 
 use eframe::{egui, epi};
 
-use goodboy_core::{
-    io::JoypadButton,
-    vm::{Screen, SCREEN_HEIGHT, SCREEN_WIDTH, VM},
-};
+use goodboy_core::vm::{Screen, SCREEN_HEIGHT, SCREEN_WIDTH, VM};
 
+mod vm;
+
+use crate::io::{self, IoEvent};
 use crate::utils::{self, Fps};
 
-#[allow(dead_code)]
-pub enum IoEvent {
-    ButtonPressed(JoypadButton),
-    ButtonReleased(JoypadButton),
-    // SetColorScheme(ColorScheme),
-    ToggleFPSLimit,
-    Exit,
+#[cfg(target_arch = "wasm32")]
+use vm::update_vm;
+#[cfg(not(target_arch = "wasm32"))]
+use vm::vm_loop;
+
+#[cfg(target_arch = "wasm32")]
+use eframe::wasm_bindgen::{self, prelude::*};
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+extern "C" {
+    fn alert(s: &str);
 }
 
 pub struct App {
@@ -62,10 +69,6 @@ impl epi::App for App {
         _frame: &epi::Frame,
         _storage: Option<&dyn epi::Storage>,
     ) {
-        self.vm = Some(VM::new_with_buffer(include_bytes!(
-            "../assets/roms/zelda.gb"
-        )));
-
         #[cfg(not(target_arch = "wasm32"))]
         {
             let screen_sender = self.screen_chan.0.clone();
@@ -74,7 +77,7 @@ impl epi::App for App {
             let vm = self.vm.take();
 
             self.vm_loop_handle = Some(thread::spawn(move || {
-                vm_loop(vm.unwrap(), screen_sender, io_receiver);
+                vm_loop(vm, screen_sender, io_receiver);
             }));
         }
     }
@@ -90,41 +93,9 @@ impl epi::App for App {
         #[cfg(target_arch = "wasm32")]
         {
             let screen_sender = self.screen_chan.0.clone();
-            let io = self.io_chan.1.as_ref().unwrap();
+            let io_receiver = self.io_chan.1.as_ref().unwrap();
 
-            let mut clocks = 0;
-            let clocks_to_run = (4194304.0 / 1000.0 * 16f64).round() as u32;
-
-            //     // let timer = speed_limit(Duration::from_millis(15));
-            //     // let mut respect_timer = true;
-
-            let vm = self.vm.as_mut().unwrap();
-            while clocks < clocks_to_run {
-                clocks += vm.tick() as u32;
-
-                if vm.check_vblank() {
-                    if let Err(mpsc::TrySendError::Disconnected(..)) =
-                        screen_sender.try_send(vm.get_screen())
-                    {
-                        // break 'vm_loop;
-                        break;
-                    }
-                }
-            }
-
-            loop {
-                match io.try_recv() {
-                    Ok(event) => match event {
-                        IoEvent::ButtonPressed(button) => vm.press_button(button),
-                        IoEvent::ButtonReleased(button) => vm.release_button(button),
-                        // IoEvent::SetColorScheme(color_scheme) => vm.set_color_scheme(color_scheme),
-                        // IoEvent::ToggleFPSLimit => respect_timer ^= true,
-                        _ => (),
-                    },
-                    // Err(mpsc::TryRecvError::Empty) => break,
-                    Err(_) => break,
-                }
-            }
+            update_vm(&mut self.vm, screen_sender, io_receiver, 0, None).ok();
         }
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
@@ -132,11 +103,23 @@ impl epi::App for App {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("Load ROM File").clicked() {
-                        println!("Load ROM")
+                        let dialog = rfd::AsyncFileDialog::new()
+                            .add_filter("ROM", &["gb", "gbc"])
+                            .pick_file();
+
+                        let io_sender = self.io_chan.0.clone();
+                        utils::spawn(async move {
+                            let file = dialog.await;
+
+                            println!("Loading file: {file:?}");
+
+                            if let Some(file) = file {
+                                let buffer = file.read().await;
+                                io_sender.send(IoEvent::InsertCartridge(buffer)).ok();
+                            }
+                        })
                     }
-                    if ui.button("Load ROM File").clicked() {
-                        println!("Load ROM")
-                    }
+
                     #[cfg(not(target_arch = "wasm32"))]
                     {
                         ui.separator();
@@ -195,63 +178,8 @@ impl epi::App for App {
                 );
             });
 
-            utils::handle_input(ui.input(), self.io_chan.0.clone());
+            io::handle_input(ui.input(), self.io_chan.0.clone());
         });
         ctx.request_repaint();
     }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn vm_loop(mut vm: VM, screen_sender: mpsc::SyncSender<Screen>, io: mpsc::Receiver<IoEvent>) {
-    let mut clocks = 0;
-    let clocks_to_run = (4194304.0 / 1000.0 * 16f64).round() as u32;
-
-    let timer = speed_limit(Duration::from_millis(15));
-    let mut respect_timer = true;
-
-    'vm_loop: loop {
-        while clocks < clocks_to_run {
-            clocks += vm.tick() as u32;
-
-            if vm.check_vblank() {
-                if let Err(mpsc::TrySendError::Disconnected(..)) =
-                    screen_sender.try_send(vm.get_screen())
-                {
-                    break 'vm_loop;
-                }
-            }
-        }
-
-        loop {
-            match io.try_recv() {
-                Ok(event) => match event {
-                    IoEvent::ButtonPressed(button) => vm.press_button(button),
-                    IoEvent::ButtonReleased(button) => vm.release_button(button),
-                    // IoEvent::SetColorScheme(color_scheme) => vm.set_color_scheme(color_scheme),
-                    IoEvent::ToggleFPSLimit => respect_timer ^= true,
-                    IoEvent::Exit => break 'vm_loop,
-                },
-                Err(mpsc::TryRecvError::Empty) => break,
-                Err(_) => break 'vm_loop,
-            }
-        }
-
-        clocks -= clocks_to_run;
-
-        if respect_timer && timer.recv().is_err() {
-            break;
-        }
-    }
-}
-
-fn speed_limit(wait_time: Duration) -> mpsc::Receiver<()> {
-    let (time_sender, time_receiver) = mpsc::sync_channel(1);
-    thread::spawn(move || loop {
-        thread::sleep(wait_time);
-        if time_sender.send(()).is_err() {
-            break;
-        };
-    });
-
-    time_receiver
 }

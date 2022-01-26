@@ -1,5 +1,6 @@
 mod app;
 mod utils;
+mod io;
 // mod gameboy;
 // mod utils;
 

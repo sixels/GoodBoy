@@ -1,40 +1,9 @@
-use eframe::egui;
-use goodboy_core::io::JoypadButton;
-use std::sync::mpsc;
+use std::future::Future;
 
 #[cfg(target_arch = "wasm32")]
 use eframe::wasm_bindgen::{self, prelude::*};
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::{self, Instant};
-
-use crate::app::IoEvent;
-
-#[rustfmt::skip]
-pub fn handle_input(input: &egui::InputState, io_sender: mpsc::Sender<IoEvent>) {
-    fn send_keys(input: &egui::InputState, io_sender: mpsc::Sender<IoEvent>) -> Result<(), mpsc::SendError<IoEvent>> {
-        if input.key_pressed(egui::Key::Delete) { io_sender.send(IoEvent::ToggleFPSLimit)?; }
-
-        if input.key_pressed(egui::Key::ArrowRight) { io_sender.send(IoEvent::ButtonPressed(JoypadButton::Right))?;  }
-        if input.key_pressed(egui::Key::ArrowLeft)  { io_sender.send(IoEvent::ButtonPressed(JoypadButton::Left))?;   }
-        if input.key_pressed(egui::Key::ArrowUp)    { io_sender.send(IoEvent::ButtonPressed(JoypadButton::Up))?;     }
-        if input.key_pressed(egui::Key::ArrowDown)  { io_sender.send(IoEvent::ButtonPressed(JoypadButton::Down))?;   }
-        if input.key_pressed(egui::Key::Z)          { io_sender.send(IoEvent::ButtonPressed(JoypadButton::A))?;      }
-        if input.key_pressed(egui::Key::X)          { io_sender.send(IoEvent::ButtonPressed(JoypadButton::B))?;      }
-        if input.key_pressed(egui::Key::Space)      { io_sender.send(IoEvent::ButtonPressed(JoypadButton::Select))?; }
-        if input.key_pressed(egui::Key::Enter)      { io_sender.send(IoEvent::ButtonPressed(JoypadButton::Start))?;  }
-
-        if input.key_released(egui::Key::ArrowRight) { io_sender.send(IoEvent::ButtonReleased(JoypadButton::Right))?;  }
-        if input.key_released(egui::Key::ArrowLeft)  { io_sender.send(IoEvent::ButtonReleased(JoypadButton::Left))?;   }
-        if input.key_released(egui::Key::ArrowUp)    { io_sender.send(IoEvent::ButtonReleased(JoypadButton::Up))?;     }
-        if input.key_released(egui::Key::ArrowDown)  { io_sender.send(IoEvent::ButtonReleased(JoypadButton::Down))?;   }
-        if input.key_released(egui::Key::Z)          { io_sender.send(IoEvent::ButtonReleased(JoypadButton::A))?;      }
-        if input.key_released(egui::Key::X)          { io_sender.send(IoEvent::ButtonReleased(JoypadButton::B))?;      }
-        if input.key_released(egui::Key::Space)      { io_sender.send(IoEvent::ButtonReleased(JoypadButton::Select))?; }
-        if input.key_released(egui::Key::Enter)      { io_sender.send(IoEvent::ButtonReleased(JoypadButton::Start))?;  }
-        Ok(())
-    }
-    send_keys(input, io_sender).ok();
-}
 
 trait TimeUnit<T> {
     fn now() -> Self
@@ -116,4 +85,13 @@ impl Default for Fps {
             start: Time::now(),
         }
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn spawn<F: Future<Output = ()> + 'static>(f: F) {
+    wasm_bindgen_futures::spawn_local(f);
+}
+#[cfg(not(target_arch = "wasm32"))]
+pub fn spawn<F: Future<Output = ()> + Send + 'static>(f: F) {
+    std::thread::spawn(|| smol::future::block_on(f));
 }

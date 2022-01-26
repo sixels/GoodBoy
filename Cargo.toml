@@ -16,5 +16,11 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 goodboy_core = { path = "./goodboy-core" }
+rfd = "0.7.0"
 eframe = "0.16.0"
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+smol = "1.2.5"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4.29"
