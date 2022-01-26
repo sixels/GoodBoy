@@ -6,20 +6,24 @@
     content="width=device-width, initial-scale=1, user-scalable=0"
   />
 
-  <meta name="description" content="GoodBoy" />
+  <meta
+    name="description"
+    content="GoodBoy is a Nintendo Game Boy emulator by sixels"
+  />
+  <link rel="icon" href="./favicon.png" type="image/png" />
   <link rel="manifest" href="./manifest.json" />
 
   <link rel="stylesheet" href="style.css" />
 
   <script>
     // register ServiceWorker
-    window.onload = () => {
-      "use strict";
+    // window.onload = () => {
+    //   "use strict";
 
-      if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("./sw.js");
-      }
-    };
+    //   if ("serviceWorker" in navigator) {
+    //     navigator.serviceWorker.register("./sw.js");
+    //   }
+    // };
   </script>
 </head>
 
