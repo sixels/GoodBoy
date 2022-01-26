@@ -7,9 +7,10 @@ use eframe::{egui, epi};
 use goodboy_core::vm::{Screen, SCREEN_HEIGHT, SCREEN_WIDTH, VM};
 
 mod vm;
+mod widgets;
 
 use crate::io::{self, IoEvent};
-use crate::utils::{self, Fps};
+use crate::utils::Fps;
 
 #[cfg(target_arch = "wasm32")]
 use vm::update_vm;
@@ -18,6 +19,8 @@ use vm::vm_loop;
 
 #[cfg(target_arch = "wasm32")]
 use eframe::wasm_bindgen::{self, prelude::*};
+
+use self::widgets::MenuBar;
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
@@ -35,6 +38,8 @@ pub struct App {
     vm: Option<VM>,
     #[cfg(not(target_arch = "wasm32"))]
     vm_loop_handle: Option<thread::JoinHandle<()>>,
+
+    menu_bar: MenuBar,
 }
 
 impl App {
@@ -45,6 +50,8 @@ impl App {
             (chan.0, Some(chan.1))
         };
 
+        let menu_bar = MenuBar::new(io_chan.0.clone());
+
         Self {
             screen_chan,
             io_chan,
@@ -54,6 +61,8 @@ impl App {
             vm: None,
             #[cfg(not(target_arch = "wasm32"))]
             vm_loop_handle: None,
+
+            menu_bar,
         }
     }
 }
@@ -98,55 +107,7 @@ impl epi::App for App {
             update_vm(&mut self.vm, screen_sender, io_receiver, 0, None).ok();
         }
 
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
-            egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("Load ROM File").clicked() {
-                        let dialog = rfd::AsyncFileDialog::new()
-                            .add_filter("ROM", &["gb", "gbc"])
-                            .pick_file();
-
-                        let io_sender = self.io_chan.0.clone();
-                        utils::spawn(async move {
-                            let file = dialog.await;
-
-                            println!("Loading file: {file:?}");
-
-                            if let Some(file) = file {
-                                let buffer = file.read().await;
-                                io_sender.send(IoEvent::InsertCartridge(buffer)).ok();
-                            }
-                        })
-                    }
-
-                    #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        ui.separator();
-                        if ui.button("Exit").clicked() {
-                            frame.quit();
-                        }
-                    }
-                });
-                ui.menu_button("Save", |ui| {
-                    if ui.button("Quick Save").clicked() {
-                        ();
-                    }
-                    if ui.button("Quick Load").clicked() {
-                        ();
-                    }
-                    ui.menu_button("Select Slot", |ui| {
-                        for i in 0..10 {
-                            ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
-                                if ui.button(format!("Slot {i}")).clicked() {
-                                    ();
-                                }
-                            });
-                        }
-                    });
-                })
-            });
-        });
+        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| self.menu_bar.render(ui, frame));
 
         egui::CentralPanel::default().show(ctx, |ui| {
             match self.screen_chan.1.try_recv() {
