@@ -1,0 +1,274 @@
+html {
+  /* Remove touch delay: */
+  touch-action: manipulation;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: #909090;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #404040;
+  }
+}
+
+canvas {
+  margin-right: auto;
+  margin-left: auto;
+  display: block;
+  position: absolute;
+  top: 0%;
+  left: 50%;
+  transform: translate(-50%, 0%);
+}
+
+* {
+  box-sizing: border-box;
+  font-family: sans-serif;
+}
+
+/* canvas {
+  width: 100% !important;
+  height: 100% !important;
+} */
+
+.gameboy {
+  position: relative;
+
+  height: 100vh;
+  width: 100%;
+
+  background: #cdcdcd;
+
+  display: grid;
+  place-items: center;
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.gameboy::before {
+  content: "";
+
+  width: 100%;
+  height: 5px;
+
+  position: absolute;
+  top: 40px;
+  left: 0;
+
+  background-color: #b9b9b9;
+}
+.gameboy::after {
+  content: "";
+
+  width: 90%;
+  height: 40px;
+
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+
+  border: 5px solid #b9b9b9;
+  border-top: 0;
+  border-bottom: 0;
+}
+
+.screen_container {
+  width: min(60vh, 60vw);
+  height: min(60vh, 60vw);
+}
+
+#screen {
+  width: 100%;
+  height: 100%;
+  background-color: #000;
+  /* border: 2px solid #54631b; */
+}
+
+.left_container {
+  width: 100%;
+  height: 100%;
+
+  /* background-color: red; */
+
+  display: grid;
+  place-items: center;
+}
+
+.directions {
+  position: relative;
+
+  display: grid;
+  place-items: center;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr 1fr;
+}
+
+.directions * {
+  background-color: #10121f;
+  width: 55px;
+  height: 55px;
+  border-radius: 4px;
+}
+
+.directions .middle {
+  grid-column: 2;
+  grid-row: 2;
+  position: relative;
+  border-radius: 0;
+}
+.directions .middle::before {
+  content: "";
+  position: absolute;
+
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+
+  background-color: #242633;
+}
+
+.directions .left {
+  grid-column: 1;
+  grid-row: 2;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  box-shadow: -1px 2px 5px #2b3672bb;
+}
+.directions .right {
+  grid-column: 3;
+  grid-row: 2;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  box-shadow: 0px 2px 5px #2b3672bb;
+}
+.directions .up {
+  grid-column: 2;
+  grid-row: 1;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  box-shadow: -1px 0px 5px #2b3672bb;
+}
+.directions .down {
+  grid-column: 2;
+  grid-row: 3;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  box-shadow: -1px 0px 5px #2b3672bb;
+}
+
+.right_container {
+  width: 100%;
+  height: 100%;
+
+  /* background-color: blue; */
+
+  display: grid;
+  place-items: center;
+}
+
+.actions {
+  position: relative;
+
+  display: flex;
+  place-items: center;
+
+  transform: rotate(-30deg);
+}
+.actions * {
+  position: relative;
+}
+.actions * button {
+  position: relative;
+
+  width: 80px;
+  height: 80px;
+
+  border-radius: 50%;
+
+  background-color: #a4054a;
+  border: 0;
+
+  box-shadow: -2px 2px 5px #2b3672bb;
+  outline: none;
+
+  margin: 15px;
+}
+.actions * button:active {
+  transform: scale(0.98);
+}
+.actions .b::before {
+  content: "B";
+  color: #111262;
+
+  font-weight: bold;
+
+  position: absolute;
+  top: 105%;
+  left: 45%;
+  transform: translate(-50%, -50%);
+}
+
+.actions .a::before {
+  content: "A";
+  color: #111262;
+
+  font-weight: bold;
+
+  position: absolute;
+  top: 105%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+@media (max-width: 720px) {
+  .gameboy {
+    padding-top: 60px;
+
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+
+    place-items: center;
+  }
+  .screen_container {
+    grid-row: 1;
+    grid-column: 1 / span 2;
+  }
+  .left_container {
+    grid-row: 2;
+    grid-column: 1;
+  }
+  .right_container {
+    grid-row: 2;
+    grid-column: 2;
+  }
+
+  .directions * {
+    width: 45px;
+    height: 45px;
+  }
+
+  .directions .middle::before {
+    width: 37px;
+    height: 37px;
+  }
+
+  .actions * button {
+    width: 60px;
+    height: 60px;
+    margin: 10px;
+  }
+}

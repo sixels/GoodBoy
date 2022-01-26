@@ -3,6 +3,3 @@ assets/roms/*.gb
 .vscode/
 
 *.gbsave
-
-# TODO: remove this line
-docs/
