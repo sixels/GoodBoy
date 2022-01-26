@@ -1,6 +1,6 @@
+use std::sync::mpsc;
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
-use std::{ops::Deref, sync::mpsc};
 
 use goodboy_core::vm::{Screen, VM};
 
