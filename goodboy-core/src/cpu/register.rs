@@ -37,7 +37,7 @@ pub struct Registers {
 }
 
 impl Registers {
-    pub(crate) fn initialized(gb_mode: GbMode) -> Registers {
+    pub fn initialize(gb_mode: GbMode) -> Registers {
         let regs = Self {
             a: 0x01,
             b: 0x00,

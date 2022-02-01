@@ -1035,6 +1035,7 @@ name = "goodboy"
 version = "0.4.0"
 dependencies = [
  "eframe",
+ "env_logger",
  "goodboy_core",
  "rfd",
  "smol",

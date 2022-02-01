@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub enum JoypadButton {
     Right,
     Left,

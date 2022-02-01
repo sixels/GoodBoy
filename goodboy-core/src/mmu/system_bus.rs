@@ -91,6 +91,8 @@ impl Bus {
             iflag: Default::default(),
             wram_bank: 1,
         };
+        log::info!("Loaded cartridge: {:?}", bus.cartridge);
+        log::info!("Game Boy mode: {gb_mode:?}");
 
         // Startup sequence
         bus.initialize();
@@ -131,19 +133,6 @@ impl Bus {
         self.mem_write(0xFF4B, 0x00); // WX
         self.mem_write(0xFFFF, 0x00); // IE
     }
-
-    // pub fn new_blank(bios: &[u8]) -> Bus {
-    //     let wram = iter::repeat(0).take(0x2000).collect();
-
-    //     let mut rom_buffer = box [0; 0x8000];
-    //     rom_buffer[..bios.len()].copy_from_slice(bios);
-
-    //     Bus {
-    //         rom_buffer,
-    //         wram,
-    //         ..Default::default()
-    //     }
-    // }
 
     /// Ticks the IO devices
     pub fn tick(&mut self, clocks: u32) -> u32 {

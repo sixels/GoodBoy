@@ -36,13 +36,15 @@ impl Cpu {
     pub fn new(bus: Bus) -> Self {
         let gb_mode = bus.gb_mode;
 
+        let regs = Registers::initialize(gb_mode);
+        log::debug!("Initialized registers: {regs:?}");
+
         Self {
             bus,
 
             sp: 0xFFFE,
             pc: 0x0100,
-
-            regs: Registers::initialized(gb_mode),
+            regs,
 
             ime: false,
             set_ei: 0,
@@ -52,15 +54,11 @@ impl Cpu {
         }
     }
 
-    #[allow(unused_mut)]
     pub fn run(&mut self) -> u32 {
         self.run_callback(|_| {})
     }
 
-    pub fn run_callback<FN>(&mut self, mut callback: FN) -> u32
-    where
-        FN: FnMut(&mut Self),
-    {
+    pub fn run_callback(&mut self, mut callback: impl FnMut(&mut Self)) -> u32 {
         callback(self);
         let clocks = self.tick().unwrap();
         self.bus.tick(clocks)
@@ -165,12 +163,14 @@ impl Cpu {
         // Get the interruption with higher precedence
         let triggered = interruptions.trailing_zeros();
         assert!(triggered < 5);
-        let triggered = triggered as u8;
 
+        let triggered = triggered as u8;
         let triggered_interruption = InterruptFlags::from_bits_truncate(1 << triggered);
         self.bus.iflag.remove(triggered_interruption);
         self.push_stack(self.pc);
         self.pc = 0x40 | (triggered << 3) as u16;
+
+        log::debug!("Interruption triggered: {triggered_interruption:?}");
 
         self.ime = false;
         16
@@ -182,7 +182,7 @@ impl Cpu {
         match opcode.instruction {
             Instruction::NOP => (),
 
-            Instruction::STOP => log::warn!("STOP in not implemented yet"),
+            Instruction::STOP => log::warn!("STOP in not implemented"),
 
             Instruction::LDIM16(target) => {
                 let immediate = self.fetch_word();

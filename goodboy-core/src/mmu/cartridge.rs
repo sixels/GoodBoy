@@ -1,21 +1,33 @@
 // use crate::memory::MemoryAccess;
 
+use std::fmt::Debug;
+
 use crate::gb_mode::GbMode;
 
 use super::mbc::{self, Mbc};
 
 pub const MBC_KIND_ADDR: usize = 0x147;
+pub const TITLE_ADDR: usize = 0x134;
+pub const GB_MODE_ADDR: usize = 0x143;
+pub const RAM_SIZE_ADDR: usize = 0x149;
 
 pub struct Cartridge {
-    mbc: Box<dyn mbc::Mbc + 'static>,
     title: String,
+    mbc: Box<dyn mbc::Mbc + 'static>,
+    ram_size: usize,
 }
 
 impl Cartridge {
     pub fn new(rom: &[u8]) -> (Cartridge, GbMode) {
-        const TITLE_ADDR: usize = 0x134;
-        const GB_MODE_ADDR: usize = 0x143;
-        const RAM_SIZE_ADDR: usize = 0x149;
+        fn ram_size(v: u8) -> usize {
+            match v {
+                1 => 0x800,
+                2 => 0x2000,
+                3 => 0x8000,
+                4 => 0x20000,
+                _ => 0,
+            }
+        }
 
         let mode = match rom[GB_MODE_ADDR] {
             // CGB only
@@ -24,10 +36,8 @@ impl Cartridge {
             0x80 => GbMode::default(),
             _ => GbMode::Dmg,
         };
-        log::info!("Gameboy mode: {:?}", mode);
 
         let ram_size = ram_size(rom[RAM_SIZE_ADDR]);
-        log::debug!("Cartridge RAM size: {}", ram_size);
 
         let mbc = match rom[MBC_KIND_ADDR] {
             0x00 => mbc::Mbc0::new(rom.to_owned()),
@@ -36,12 +46,6 @@ impl Cartridge {
             0x19..=0x1B => mbc::Mbc5::new(rom.to_owned(), ram_size),
             _ => panic!("Unsupported cartridge MBC"),
         };
-
-        if let Some(info) = mbc.kind() {
-            log::info!("MBC info: {:?}", info);
-        } else {
-            log::info!("No information supplied for this MBC")
-        }
 
         let title_len = if mode == GbMode::Dmg { 16 } else { 11 };
         let title = (0..title_len)
@@ -52,9 +56,8 @@ impl Cartridge {
                     .map(|byte| byte as char)
             })
             .collect::<String>();
-        log::info!("Game title: \"{}\"", title);
 
-        (Cartridge { mbc, title }, mode)
+        (Cartridge { mbc, title, ram_size }, mode)
     }
 
     pub fn rom_name(&self) -> &str {
@@ -77,12 +80,12 @@ impl Mbc for Cartridge {
     }
 }
 
-fn ram_size(v: u8) -> usize {
-    match v {
-        1 => 0x800,
-        2 => 0x2000,
-        3 => 0x8000,
-        4 => 0x20000,
-        _ => 0,
+impl Debug for Cartridge {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Cartridge")
+            .field("title", &self.title)
+            .field("mbc", &self.mbc.kind())
+            .field("ram_size", &self.ram_size)
+            .finish()
     }
 }

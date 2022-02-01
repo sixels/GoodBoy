@@ -11,8 +11,13 @@ pub struct Serial {
 
 impl Serial {
     fn display(&self) {
+        let data = self.data;
+
+        log::info!("Serial Ouput: {data}");
+
+        // write to serial message to stderr
         let mut stderr = std::io::stderr();
-        stderr.write_all(&[self.data]).unwrap();
+        stderr.write_all(&[data]).unwrap();
         std::io::stderr().flush().unwrap();
     }
 }
