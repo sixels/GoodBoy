@@ -42,6 +42,8 @@ pub struct Gpu {
     lcd_status: LCDStatus,
     mode: GpuMode,
 
+    
+
     scan_line: u8,
     scan_line_check: u8,
 

@@ -86,7 +86,8 @@ impl epi::App for App {
             let vm = self.vm.take();
 
             self.vm_loop_handle = Some(thread::spawn(move || {
-                vm_loop(vm, screen_sender, io_receiver);
+                let screen_sender_clone = screen_sender.clone();
+                thread::spawn(move || vm_loop(vm, screen_sender_clone, io_receiver));
             }));
         }
     }

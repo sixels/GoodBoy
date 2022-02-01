@@ -6,7 +6,7 @@ use crate::{
     ppu::Gpu,
 };
 
-use super::{cartridge::Cartridge, InterruptFlags, Mbc, MemoryAccess};
+use super::{cartridge::Cartridge, dma::Dma, InterruptFlags, Mbc, MemoryAccess};
 
 const WRAM_SIZE: usize = 0x8000;
 const ZRAM_SIZE: usize = 0x7F;
@@ -65,6 +65,8 @@ pub struct Bus {
     pub ienable: InterruptFlags,
 
     // CGB registers
+    // Direct Memory Access registers
+    pub hdma: Dma,
     /// WRAM Bank
     wram_bank: usize,
 }
@@ -89,7 +91,9 @@ impl Bus {
             zram: [0; ZRAM_SIZE],
             ienable: Default::default(),
             iflag: Default::default(),
+
             wram_bank: 1,
+            hdma: Default::default(),
         };
         log::info!("Loaded cartridge: {:?}", bus.cartridge);
         log::info!("Game Boy mode: {gb_mode:?}");
@@ -192,12 +196,14 @@ impl MemoryAccess for Bus {
             0xFF46 => 0,
             0xFF40..=0xFF4B => self.gpu.mem_read(addr),
 
+            0xff51..=0xff55 => self.hdma.mem_read(addr),
             0xFF70 => self.wram_bank as u8,
-            0xFF00..=0xFF7F => self.io_registers[(addr & 0xFF) as usize],
+            0xFF00..=0xFF3F => self.io_registers[(addr & 0xFF) as usize],
 
             0xFF80..=0xFFFE => self.zram[(addr & 0x7F) as usize],
 
             0xFFFF => self.ienable.bits(),
+            _ => panic!("Oops. Tried to read address 0x{addr:04X}"),
         }
     }
 
@@ -234,6 +240,7 @@ impl MemoryAccess for Bus {
             }
             0xFF40..=0xFF4B => self.gpu.mem_write(addr, value),
 
+            0xff51..=0xff55 => self.hdma.mem_write(addr, value),
             0xFF70 => {
                 self.wram_bank = if (value & 0x7) == 0 {
                     1

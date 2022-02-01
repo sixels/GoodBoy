@@ -2,6 +2,7 @@ mod mbc;
 mod system_bus;
 
 pub mod cartridge;
+mod dma;
 
 pub use mbc::Mbc;
 pub use system_bus::Bus;
