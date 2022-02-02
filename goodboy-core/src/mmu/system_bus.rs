@@ -66,7 +66,7 @@ pub struct Bus {
 
     // CGB registers
     // Direct Memory Access registers
-    pub hdma: Dma,
+    dma: Dma,
     /// WRAM Bank
     wram_bank: usize,
 }
@@ -93,7 +93,7 @@ impl Bus {
             iflag: Default::default(),
 
             wram_bank: 1,
-            hdma: Default::default(),
+            dma: Default::default(),
         };
         log::info!("Loaded cartridge: {:?}", bus.cartridge);
         log::info!("Game Boy mode: {gb_mode:?}");
@@ -140,15 +140,26 @@ impl Bus {
 
     /// Ticks the IO devices
     pub fn tick(&mut self, clocks: u32) -> u32 {
+        // let Self {
+        //     hdma,
+        //     timer,
+        //     iflag,
+        //     gpu,
+        //     serial,
+        //     ..
+        // } = self;
+
+        let dma_clocks = self.start_dma();
+
         // update the timer
-        self.timer.sync(clocks);
+        self.timer.sync(clocks + dma_clocks);
         if self.timer.interrupt {
             self.iflag.insert(InterruptFlags::TIMER);
             self.timer.interrupt = false;
         }
 
         // update the gpu
-        self.gpu.sync(clocks);
+        self.gpu.sync(clocks + dma_clocks);
         if self.gpu.interrupt_vblank {
             self.iflag.insert(InterruptFlags::VBLANK);
             self.gpu.interrupt_vblank = false;
@@ -164,7 +175,49 @@ impl Bus {
             self.serial.interrupt = false;
         }
 
-        clocks
+        clocks + dma_clocks
+    }
+
+    fn start_dma(&mut self) -> u32 {
+        match self.dma.dma_mode {
+            0 if self.dma.dma_start => self.start_gdma(),
+            1 if self.dma.dma_start => self.start_hdma(),
+            _ => 0x00,
+        }
+    }
+    fn start_hdma(&mut self) -> u32 {
+        assert!(self.dma.dma_start && self.dma.dma_mode == 1);
+
+        let src_addr = self.dma.src;
+        for i in 0x00..0x10 {
+            let src = self.mem_read(src_addr + i);
+            self.mem_write(self.dma.dst + i, src)
+        }
+        self.dma.src += 0x10;
+        self.dma.dst += 0x10;
+
+        self.dma.dma_length = self.dma.dma_length.wrapping_sub(1);
+
+        if self.dma.dma_length == 0x7F {
+            self.dma.dma_start = false;
+        }
+
+        0x08
+    }
+    fn start_gdma(&mut self) -> u32 {
+        let gdma_len = self.dma.dma_length as u16;
+
+        let src_addr = self.dma.src;
+        let blk_size = 0x10 * gdma_len;
+        for i in 0x00..blk_size {
+            let src = self.mem_read(src_addr + i);
+            self.mem_write(self.dma.dst + i, src)
+        }
+        self.dma.src += blk_size;
+        self.dma.dst += blk_size;
+        self.dma.dma_length = 0x7F;
+
+        0x08 * gdma_len as u32
     }
 }
 
@@ -196,7 +249,7 @@ impl MemoryAccess for Bus {
             0xFF46 => 0,
             0xFF40..=0xFF4B => self.gpu.mem_read(addr),
 
-            0xff51..=0xff55 => self.hdma.mem_read(addr),
+            0xff51..=0xff55 => self.dma.mem_read(addr),
             0xFF70 => self.wram_bank as u8,
             0xFF00..=0xFF3F => self.io_registers[(addr & 0xFF) as usize],
 
@@ -232,15 +285,17 @@ impl MemoryAccess for Bus {
             0xFF04..=0xFF07 => self.timer.mem_write(addr, value),
 
             0xFF46 => {
-                let base = (value as u16) << 8;
-                for i in 0..0xA0 {
-                    let b = self.mem_read(base + i);
-                    self.mem_write(0xFE00 + i, b);
+                let src_addr = (value as u16) << 8;
+                for i in 0x00..=0x9F {
+                    let dst_addr = 0xFE00 + i;
+                    let src = self.mem_read(src_addr + i);
+
+                    self.mem_write(dst_addr, src);
                 }
             }
             0xFF40..=0xFF4B => self.gpu.mem_write(addr, value),
 
-            0xff51..=0xff55 => self.hdma.mem_write(addr, value),
+            0xff51..=0xff55 => self.dma.mem_write(addr, value),
             0xFF70 => {
                 self.wram_bank = if (value & 0x7) == 0 {
                     1
