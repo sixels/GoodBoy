@@ -34,9 +34,9 @@ impl MemoryAccess for Dma {
                 }
                 self.dma_start = true;
 
-                self.src = self.mem_read_word(0xFF51);
+                self.src = ((self.regs[0] as u16) << 8) | (self.regs[1] as u16);
                 assert!(self.src <= 0x7FF0 || (self.src >= 0xA000 && self.src <= 0xDFF0));
-                self.dst = self.mem_read_word(0xFF53) | 0x8000;
+                self.dst = ((self.regs[2] as u16) << 8) | (self.regs[3] as u16) | 0x8000;
 
                 self.dma_mode = value & 0x80;
                 self.dma_length = value & 0x7F;
@@ -47,7 +47,7 @@ impl MemoryAccess for Dma {
 
     fn mem_read(&self, addr: u16) -> u8 {
         match addr {
-            0xff51..=0xff54 => self.regs[(addr & 0xF) as usize - 1],
+            0xff51..=0xff54 => self.regs[(addr - 0xFF51) as usize],
             0xff55 => self.dma_length | (self.dma_mode << 7),
             _ => unreachable!(),
         }

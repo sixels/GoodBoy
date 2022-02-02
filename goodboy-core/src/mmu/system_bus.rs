@@ -205,7 +205,9 @@ impl Bus {
         0x08
     }
     fn start_gdma(&mut self) -> u32 {
-        let gdma_len = self.dma.dma_length as u16;
+        assert!(self.dma.dma_start && self.dma.dma_mode == 0);
+
+        let gdma_len = 1 + self.dma.dma_length as u16;
 
         let src_addr = self.dma.src;
         let blk_size = 0x10 * gdma_len;
@@ -216,6 +218,7 @@ impl Bus {
         self.dma.src += blk_size;
         self.dma.dst += blk_size;
         self.dma.dma_length = 0x7F;
+        self.dma.dma_start = false;
 
         0x08 * gdma_len as u32
     }
