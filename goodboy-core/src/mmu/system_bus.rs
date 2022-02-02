@@ -250,16 +250,22 @@ impl MemoryAccess for Bus {
             0xFF04..=0xFF07 => self.timer.mem_read(addr),
 
             0xFF46 => 0,
-            0xFF40..=0xFF4B => self.gpu.mem_read(addr),
+            0xff40..=0xff4b | 0xff4f => self.gpu.mem_read(addr),
 
             0xff51..=0xff55 => self.dma.mem_read(addr),
+
             0xFF70 => self.wram_bank as u8,
-            0xFF00..=0xFF3F => self.io_registers[(addr & 0xFF) as usize],
 
             0xFF80..=0xFFFE => self.zram[(addr & 0x7F) as usize],
 
             0xFFFF => self.ienable.bits(),
-            _ => panic!("Oops. Tried to read address 0x{addr:04X}"),
+
+            // 0xff4d => {
+            //     log::warn!("0xff4d not implemented yet");
+            //     0
+            // }
+            // 0xFF00..=0xFF7F => self.io_registers[(addr & 0xFF) as usize],
+            _ => 0,
         }
     }
 
@@ -296,7 +302,7 @@ impl MemoryAccess for Bus {
                     self.mem_write(dst_addr, src);
                 }
             }
-            0xFF40..=0xFF4B => self.gpu.mem_write(addr, value),
+            0xff40..=0xff4b | 0xff4f => self.gpu.mem_write(addr, value),
 
             0xff51..=0xff55 => self.dma.mem_write(addr, value),
             0xFF70 => {
@@ -306,11 +312,14 @@ impl MemoryAccess for Bus {
                     (value & 0x7) as usize
                 }
             }
-            0xFF00..=0xFF7F => self.io_registers[(addr & 0xFF) as usize] = value,
 
             0xFF80..=0xFFFE => self.zram[(addr & 0x7F) as usize] = value,
 
             0xFFFF => self.ienable = InterruptFlags::from_bits_truncate(value),
+
+            // 0xff4d => log::warn!("0xff4d not implemented yet"),
+            // 0xFF00..=0xFF7F => self.io_registers[(addr & 0xFF) as usize] = value,
+            _ => {}
         }
     }
 }

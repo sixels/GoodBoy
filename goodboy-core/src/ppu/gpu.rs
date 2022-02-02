@@ -42,8 +42,6 @@ pub struct Gpu {
     lcd_status: LCDStatus,
     mode: GpuMode,
 
-    
-
     scan_line: u8,
     scan_line_check: u8,
 
@@ -65,6 +63,9 @@ pub struct Gpu {
     clocks: u32,
 
     pub vblanked: bool,
+
+    // CGB registers
+    vram_bank: usize,
 }
 
 impl Gpu {
@@ -329,7 +330,7 @@ impl Gpu {
 impl MemoryAccess for Gpu {
     fn mem_read(&self, addr: u16) -> u8 {
         match addr {
-            0x8000..=0x9FFF => self.vram[(addr & 0x1FFF) as usize],
+            0x8000..=0x9FFF => self.vram[(self.vram_bank * 0x2000) | (addr & 0x1FFF) as usize],
             0xFE00..=0xFE9F => self.oam[(addr & 0x01FF) as usize],
 
             0xFF40 => self.lcd_control.bits(),
@@ -356,12 +357,16 @@ impl MemoryAccess for Gpu {
             0xFF4A => self.win_y,
             0xFF4B => self.win_x,
 
+            0xff4f => self.vram_bank as u8,
+
             _ => panic!("Invalid GPU read address: 0x{:04X}", addr),
         }
     }
     fn mem_write(&mut self, addr: u16, value: u8) {
         match addr {
-            0x8000..=0x9FFF => self.vram[(addr & 0x1FFF) as usize] = value,
+            0x8000..=0x9FFF => {
+                self.vram[(self.vram_bank * 0x2000) | (addr & 0x1FFF) as usize] = value
+            }
             0xFE00..=0xFE9F => {
                 let addr = addr as usize & 0x01FF;
                 self.oam[addr] = value;
@@ -403,6 +408,8 @@ impl MemoryAccess for Gpu {
             0xFF4A => self.win_y = value,
             0xFF4B => self.win_x = value,
 
+            0xff4f => self.vram_bank = 0x01 & value as usize,
+
             _ => panic!("Invalid GPU write address: 0x{:04X}", addr),
         }
     }
@@ -438,6 +445,8 @@ impl Default for Gpu {
             interrupt_lcd: false,
             clocks: 0,
             vblanked: false,
+
+            vram_bank: 0,
         }
     }
 }
