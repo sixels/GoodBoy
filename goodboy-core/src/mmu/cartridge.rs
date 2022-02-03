@@ -43,7 +43,7 @@ impl Cartridge {
             0x00 => mbc::Mbc0::new(rom.to_owned()),
             0x01..=0x03 => mbc::Mbc1::new(rom.to_owned(), ram_size),
             0x0F..=0x13 => mbc::Mbc3::new(rom.to_owned(), ram_size, "savefile.gbsave"),
-            0x19..=0x1B => mbc::Mbc5::new(rom.to_owned(), ram_size),
+            0x19..=0x1B => mbc::Mbc5::new(rom.to_owned(), ram_size, "savefile.gbsave"),
             _ => panic!("Unsupported cartridge MBC"),
         };
 
