@@ -11,6 +11,9 @@ pub struct Sprite {
     pub flip_y: bool,
 
     pub palette: bool,
+    // CGB
+    pub paletten: usize,
+    pub vram_bank: usize,
 }
 
 pub fn update_sprites(sprites: &mut [Sprite], sprite_addr: usize, sprite_value: u8) {
@@ -24,6 +27,9 @@ pub fn update_sprites(sprites: &mut [Sprite], sprite_addr: usize, sprite_value: 
             sprites[i].flip_y = (sprite_value & 0x40) == 0x40;
             sprites[i].flip_x = (sprite_value & 0x20) == 0x20;
             sprites[i].palette = (sprite_value & 0x10) == 0x10;
+
+            sprites[i].paletten = (sprite_value & 0x07) as usize;
+            sprites[i].vram_bank = ((sprite_value & 0x08) != 0) as usize;
         }
     }
 }

@@ -55,7 +55,7 @@ pub struct Bus {
 
     /// Other I/O Registers \
     /// 0xFF00 ..= 0xFF7F
-    io_registers: [u8; 0x80],
+    // io_registers: [u8; 0x80],
 
     /// Interrupt Flag (IF) \
     /// 0xFF0F
@@ -80,15 +80,15 @@ impl Bus {
         let mut bus = Bus {
             gb_mode,
 
-            cartridge,
             wram,
+            zram: [0; ZRAM_SIZE],
 
-            gpu: Default::default(),
+            cartridge,
+            gpu: Gpu::new(gb_mode),
             joypad: Default::default(),
             serial: Default::default(),
             timer: Default::default(),
-            io_registers: [0; 0x80],
-            zram: [0; ZRAM_SIZE],
+            // io_registers: [0; 0x80],
             ienable: Default::default(),
             iflag: Default::default(),
 
@@ -251,8 +251,8 @@ impl MemoryAccess for Bus {
 
             0xFF46 => 0,
             0xff40..=0xff4b | 0xff4f => self.gpu.mem_read(addr),
-
             0xff51..=0xff55 => self.dma.mem_read(addr),
+            0xff68..=0xff6b => self.gpu.mem_read(addr),
 
             0xFF70 => self.wram_bank as u8,
 
@@ -303,8 +303,9 @@ impl MemoryAccess for Bus {
                 }
             }
             0xff40..=0xff4b | 0xff4f => self.gpu.mem_write(addr, value),
-
             0xff51..=0xff55 => self.dma.mem_write(addr, value),
+            0xff68..=0xff6b => self.gpu.mem_write(addr, value),
+
             0xFF70 => {
                 self.wram_bank = if (value & 0x7) == 0 {
                     1
