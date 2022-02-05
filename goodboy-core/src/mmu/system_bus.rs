@@ -185,6 +185,18 @@ impl Bus {
         gpu_clocks
     }
 
+    pub fn switch_speed(&mut self) {
+        if self.toggle_speed {
+            if self.speed == 2 {
+                self.speed = 1
+            } else {
+                self.speed = 2
+            }
+            
+            self.toggle_speed = false;
+        }
+    }
+
     fn start_dma(&mut self) -> u32 {
         match self.dma.dma_mode {
             0 if self.dma.dma_start => self.start_gdma(),
@@ -258,7 +270,7 @@ impl MemoryAccess for Bus {
 
             0xFF46 => 0,
             0xff40..=0xff4b | 0xff4f => self.gpu.mem_read(addr),
-            0xff4d => (self.speed << 7) | self.toggle_speed as u8,
+            0xff4d => ((self.speed >> 1) << 7) | self.toggle_speed as u8,
             0xff51..=0xff55 => self.dma.mem_read(addr),
             0xff68..=0xff6b => self.gpu.mem_read(addr),
 

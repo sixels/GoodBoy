@@ -182,7 +182,7 @@ impl Cpu {
         match opcode.instruction {
             Instruction::NOP => (),
 
-            Instruction::STOP => log::warn!("STOP in not implemented"),
+            Instruction::STOP => self.bus.switch_speed(),
 
             Instruction::LDIM16(target) => {
                 let immediate = self.fetch_word();
