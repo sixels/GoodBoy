@@ -1,5 +1,11 @@
 use std::collections::HashMap;
 
+macro_rules! nop {
+    ($opcode:expr) => {
+        Opcode::new($opcode, 1, 4, Instruction::NOP, "NOP")
+    };
+}
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Operand {
     A,
@@ -176,7 +182,20 @@ lazy_static::lazy_static! {
     };
 
     static ref OPCODE_VEC: Vec<Opcode<'static>> = vec![
+        nop!(0x00),
+
+        nop!(0xE3),
+        nop!(0xE4),
+        nop!(0xEB),
+        nop!(0xEC),
+        nop!(0xED),
+        nop!(0xF4),
+        nop!(0xFC),
+        nop!(0xFD),
+
         Opcode::new(0x00, 1, 4, Instruction::NOP, "NOP"),
+        Opcode::new(0xF4, 1, 4, Instruction::NOP, "NOP"),
+
         Opcode::new(0x10, 2, 4, Instruction::STOP, "STOP"),
         Opcode::new(0x76, 1, 4, Instruction::HALT, "HALT"),
 
