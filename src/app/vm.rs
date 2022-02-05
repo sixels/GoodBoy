@@ -14,22 +14,32 @@ pub fn vm_loop(
 ) {
     let mut clocks = 0;
 
-    let timer = speed_limit(Duration::from_millis(15));
-    let mut respect_timer = true;
+    let sleep_time: Vec<u64> = vec![16, 8, 4, 0];
+    let mut time_cycle = sleep_time.iter().copied().cycle();
+
+    let (timer, sleep_sender) = speed_limit(Duration::from_millis(time_cycle.next().unwrap()));
 
     loop {
+        let mut switch_speed = false;
+
         match update_vm(
             &mut vm,
             screen_sender.clone(),
             &io,
             clocks,
-            Some(&mut respect_timer),
+            Some(&mut switch_speed),
         ) {
             Ok(rem_clocks) => clocks = rem_clocks,
             Err(_) => break,
         }
 
-        if respect_timer && timer.recv().is_err() {
+        if switch_speed {
+            sleep_sender
+                .send(Duration::from_millis(time_cycle.next().unwrap()))
+                .ok();
+        }
+
+        if timer.recv().is_err() {
             // timer stopped
             break;
         }
@@ -37,18 +47,25 @@ pub fn vm_loop(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn speed_limit(wait_time: Duration) -> mpsc::Receiver<()> {
+fn speed_limit(wait_time: Duration) -> (mpsc::Receiver<()>, mpsc::Sender<Duration>) {
     use std::thread;
 
     let (time_sender, time_receiver) = mpsc::sync_channel(1);
+    let (sleep_sender, sleep_receiver) = mpsc::channel();
+
+    let mut wait_time = wait_time;
     thread::spawn(move || loop {
+        while let Ok(time) = sleep_receiver.try_recv() {
+            wait_time = time
+        }
+
         thread::sleep(wait_time);
         if time_sender.send(()).is_err() {
             break;
         };
     });
 
-    time_receiver
+    (time_receiver, sleep_sender)
 }
 
 pub fn update_vm(
