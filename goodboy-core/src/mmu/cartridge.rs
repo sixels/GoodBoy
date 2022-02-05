@@ -39,14 +39,6 @@ impl Cartridge {
 
         let ram_size = ram_size(rom[RAM_SIZE_ADDR]);
 
-        let mbc = match rom[MBC_KIND_ADDR] {
-            0x00 => mbc::Mbc0::new(rom.to_owned()),
-            0x01..=0x03 => mbc::Mbc1::new(rom.to_owned(), ram_size),
-            0x0F..=0x13 => mbc::Mbc3::new(rom.to_owned(), ram_size, "savefile.gbsave"),
-            0x19..=0x1B => mbc::Mbc5::new(rom.to_owned(), ram_size, "savefile.gbsave"),
-            _ => panic!("Unsupported cartridge MBC"),
-        };
-
         let title_len = if mode == GbMode::Dmg { 16 } else { 11 };
         let title = (0..title_len)
             .filter_map(|i| {
@@ -57,7 +49,24 @@ impl Cartridge {
             })
             .collect::<String>();
 
-        (Cartridge { mbc, title, ram_size }, mode)
+        let save_file = format!("{}.gbsave", title.to_ascii_lowercase());
+
+        let mbc = match rom[MBC_KIND_ADDR] {
+            0x00 => mbc::Mbc0::new(rom.to_owned()),
+            0x01..=0x03 => mbc::Mbc1::new(rom.to_owned(), ram_size),
+            0x0F..=0x13 => mbc::Mbc3::new(rom.to_owned(), ram_size, &save_file),
+            0x19..=0x1B => mbc::Mbc5::new(rom.to_owned(), ram_size, &save_file),
+            _ => panic!("Unsupported cartridge MBC"),
+        };
+
+        (
+            Cartridge {
+                mbc,
+                title,
+                ram_size,
+            },
+            mode,
+        )
     }
 
     pub fn rom_name(&self) -> &str {
