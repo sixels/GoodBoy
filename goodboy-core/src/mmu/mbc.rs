@@ -32,7 +32,7 @@ pub enum MbcKind<'a> {
     MBC5(&'a Vec<MbcCapability>),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MbcCapability {
     Ram,
     Battery,
