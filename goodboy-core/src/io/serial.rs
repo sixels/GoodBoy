@@ -1,4 +1,4 @@
-use std::io::Write;
+// use std::io::Write;
 
 use crate::mmu::MemoryAccess;
 
@@ -6,19 +6,20 @@ use crate::mmu::MemoryAccess;
 pub struct Serial {
     data: u8,
     control: u8,
-    pub interrupt: bool,
+    pub interrupt: u8,
 }
 
 impl Serial {
     fn display(&self) {
         let data = self.data;
-
-        log::info!("Serial Ouput: {data}");
-
+        let char_data = char::from_u32(data as u32).unwrap().escape_default();
+        
+        log::debug!("Serial Ouput: 0x{data:02X} ({char_data})",);
+        
         // write to serial message to stderr
-        let mut stderr = std::io::stderr();
-        stderr.write_all(&[data]).unwrap();
-        std::io::stderr().flush().unwrap();
+        // let mut stderr = std::io::stderr();
+        // stderr.write_all(&[data]).unwrap();
+        // std::io::stderr().flush().unwrap();
     }
 }
 
@@ -38,7 +39,7 @@ impl MemoryAccess for Serial {
                     self.display();
 
                     self.data = value;
-                    self.interrupt = true;
+                    self.interrupt = 0x08;
                 }
             }
             _ => panic!("Invalid Serial address"),
