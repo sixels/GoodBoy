@@ -98,10 +98,15 @@ impl Rgb555 {
     pub const fn into_rgba(self) -> Rgba {
         let Self { r, g, b } = self;
 
+        let (r, g, b) = (r as u32, g as u32, b as u32);
+
         Rgba {
-            r: ((r as u16 * 0xFF) / 0x1F) as u8,
-            g: ((g as u16 * 0xFF) / 0x1F) as u8,
-            b: ((b as u16 * 0xFF) / 0x1F) as u8,
+            r: ((r * 13 + g * 2 + b) >> 1) as u8,
+            g: ((g * 3 + b) << 1) as u8,
+            b: ((r * 3 + g * 2 + b * 11) >> 1) as u8,
+            // r: ((r as u16 * 0xFF) / 0x1F) as u8,
+            // g: ((g as u16 * 0xFF) / 0x1F) as u8,
+            // b: ((b as u16 * 0xFF) / 0x1F) as u8,
             a: 0xFF,
         }
     }
