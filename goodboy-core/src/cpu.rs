@@ -3,12 +3,7 @@ pub mod register;
 
 use std::fmt::Debug;
 
-use crate::{
-    cpu::instruction::Operand,
-    mmu::MemoryAccess,
-    mmu::{Bus, InterruptFlags},
-    utils::UnsignedValue,
-};
+use crate::{cpu::instruction::Operand, mmu::Bus, mmu::MemoryAccess, utils::UnsignedValue};
 use instruction::{Condition, Instruction, Opcode, CB_OPCODE_MAP, OPCODE_MAP};
 use register::{Flags, Registers};
 
@@ -150,7 +145,7 @@ impl Cpu {
             return 0;
         }
 
-        let interruptions = (self.bus.ienable & self.bus.iflag).bits();
+        let interruptions = self.bus.ienable & self.bus.iflag;
         if interruptions == 0 {
             return 0;
         }
@@ -159,20 +154,21 @@ impl Cpu {
         if !self.ime {
             return 0;
         }
+        self.ime = false;
 
         // Get the interruption with higher precedence
         let triggered = interruptions.trailing_zeros();
         assert!(triggered < 5);
 
         let triggered = triggered as u8;
-        let triggered_interruption = InterruptFlags::from_bits_truncate(1 << triggered);
-        self.bus.iflag.remove(triggered_interruption);
-        self.push_stack(self.pc);
-        self.pc = 0x40 | (triggered << 3) as u16;
+        self.bus.iflag &= !(1 << triggered);
 
-        log::debug!("Interruption triggered: {triggered_interruption:?}");
+        let pc = self.pc;
+        self.push_stack(pc);
+        self.pc = 0x40 | ((triggered as u16) << 3);
 
-        self.ime = false;
+        log::debug!("Interruption triggered: {triggered:?}");
+
         16
     }
 
