@@ -13,6 +13,8 @@ pub enum JoypadButton {
 pub struct Joypad {
     rows: (u8, u8),
     column: u8,
+    data: u8,
+    pub interrupt: u8,
 }
 
 impl Joypad {
@@ -39,6 +41,7 @@ impl Joypad {
             JoypadButton::Select => self.rows.0 &= 0xB,
             JoypadButton::Start  => self.rows.0 &= 0x7,
         }
+        self.update();
     }
     #[rustfmt::skip]
     pub fn release_button(&mut self, button: JoypadButton) {
@@ -52,6 +55,25 @@ impl Joypad {
             JoypadButton::Select => self.rows.0 |= 0x4,
             JoypadButton::Start  => self.rows.0 |= 0x8,
         }
+        self.update()
+    }
+
+    fn update(&mut self) {
+        let old_values = self.data & 0xF;
+        let mut new_values = 0xF;
+
+        if self.data & 0x10 == 0x00 {
+            new_values &= self.rows.0;
+        }
+        if self.data & 0x20 == 0x00 {
+            new_values &= self.rows.1;
+        }
+
+        if old_values == 0xF && new_values != 0xF {
+            self.interrupt |= 0x10;
+        }
+
+        self.data = (self.data & 0xF0) | new_values;
     }
 }
 
@@ -60,6 +82,8 @@ impl Default for Joypad {
         Joypad {
             rows: (0x0F, 0x0F),
             column: 0,
+            data: 0xFF,
+            interrupt: 0,
         }
     }
 }
