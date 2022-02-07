@@ -6,7 +6,7 @@ use crate::{
     ppu::Gpu,
 };
 
-use super::{cartridge::Cartridge, dma::Dma, InterruptFlags, Mbc, MemoryAccess};
+use super::{cartridge::Cartridge, dma::Dma, Mbc, MemoryAccess};
 
 const WRAM_SIZE: usize = 0x8000;
 const ZRAM_SIZE: usize = 0x7F;
@@ -59,10 +59,10 @@ pub struct Bus {
 
     /// Interrupt Flag (IF) \
     /// 0xFF0F
-    pub iflag: InterruptFlags,
+    pub iflag: u8,
     /// Interrupt Enable (IE) \
     /// 0xFFFF
-    pub ienable: InterruptFlags,
+    pub ienable: u8,
 
     // CGB registers
     // Direct Memory Access registers
@@ -143,44 +143,37 @@ impl Bus {
         self.mem_write(0xFFFF, 0x00); // IE
     }
 
-    /// Ticks the IO devices
-    pub fn tick(&mut self, clocks: u32) -> u32 {
-        // let Self {
-        //     hdma,
-        //     timer,
-        //     iflag,
-        //     gpu,
-        //     serial,
-        //     ..
-        // } = self;
-
+    /// Sync the IO devices
+    pub fn sync(&mut self, clocks: u32) -> u32 {
         let dma_clocks = self.start_dma();
-        let cpu_clocks = clocks + dma_clocks * (self.speed as u32);
-        let gpu_clocks = clocks / (self.speed as u32) + dma_clocks;
+        let Self {
+            timer,
+            iflag,
+            gpu,
+            serial,
+            speed,
+            joypad,
+            ..
+        } = self;
+
+        let cpu_clocks = clocks + dma_clocks * (*speed as u32);
+        let gpu_clocks = clocks / (*speed as u32) + dma_clocks;
 
         // update the timer
-        self.timer.sync(cpu_clocks);
-        if self.timer.interrupt {
-            self.iflag.insert(InterruptFlags::TIMER);
-            self.timer.interrupt = false;
-        }
+        timer.sync(cpu_clocks);
+        *iflag |= timer.interrupt;
+        timer.interrupt = 0;
+
+        *iflag |= joypad.interrupt;
+        joypad.interrupt = 0;
 
         // update the gpu
-        self.gpu.sync(gpu_clocks);
-        if self.gpu.interrupt_vblank {
-            self.iflag.insert(InterruptFlags::VBLANK);
-            self.gpu.interrupt_vblank = false;
-        }
-        if self.gpu.interrupt_lcd {
-            self.iflag.insert(InterruptFlags::LCD);
-            self.gpu.interrupt_lcd = false;
-        }
+        gpu.sync(gpu_clocks);
+        *iflag |= gpu.interrupt;
+        gpu.interrupt = 0;
 
-        // update the serial
-        if self.serial.interrupt {
-            self.iflag.insert(InterruptFlags::SERIAL);
-            self.serial.interrupt = false;
-        }
+        *iflag |= serial.interrupt;
+        serial.interrupt = 0;
 
         gpu_clocks
     }
@@ -192,7 +185,7 @@ impl Bus {
             } else {
                 self.speed = 2
             }
-            
+
             self.toggle_speed = false;
         }
     }
@@ -263,7 +256,7 @@ impl MemoryAccess for Bus {
 
             0xFF00 => self.joypad.read(),
 
-            0xFF0F => self.iflag.bits(),
+            0xFF0F => self.iflag,
 
             0xFF01..=0xFF02 => self.serial.mem_read(addr),
             0xFF04..=0xFF07 => self.timer.mem_read(addr),
@@ -278,7 +271,7 @@ impl MemoryAccess for Bus {
 
             0xFF80..=0xFFFE => self.zram[(addr & 0x7F) as usize],
 
-            0xFFFF => self.ienable.bits(),
+            0xFFFF => self.ienable,
             // 0xFF00..=0xFF7F => self.io_registers[(addr & 0xFF) as usize],
             _ => 0,
         }
@@ -303,7 +296,7 @@ impl MemoryAccess for Bus {
 
             0xFF00 => self.joypad.write(value),
 
-            0xFF0F => self.iflag = InterruptFlags::from_bits_truncate(value),
+            0xFF0F => self.iflag = value,
 
             0xFF01..=0xFF02 => self.serial.mem_write(addr, value),
             0xFF04..=0xFF07 => self.timer.mem_write(addr, value),
@@ -336,7 +329,7 @@ impl MemoryAccess for Bus {
 
             0xFF80..=0xFFFE => self.zram[(addr & 0x7F) as usize] = value,
 
-            0xFFFF => self.ienable = InterruptFlags::from_bits_truncate(value),
+            0xFFFF => self.ienable = value,
 
             // 0xff4d => log::warn!("0xff4d not implemented yet"),
             // 0xFF00..=0xFF7F => self.io_registers[(addr & 0xFF) as usize] = value,

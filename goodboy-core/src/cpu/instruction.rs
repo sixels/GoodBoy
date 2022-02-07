@@ -184,6 +184,8 @@ lazy_static::lazy_static! {
     static ref OPCODE_VEC: Vec<Opcode<'static>> = vec![
         nop!(0x00),
 
+        nop!(0xD3),
+        nop!(0xDD),
         nop!(0xE3),
         nop!(0xE4),
         nop!(0xEB),
@@ -193,8 +195,6 @@ lazy_static::lazy_static! {
         nop!(0xFC),
         nop!(0xFD),
 
-        Opcode::new(0x00, 1, 4, Instruction::NOP, "NOP"),
-        Opcode::new(0xF4, 1, 4, Instruction::NOP, "NOP"),
 
         Opcode::new(0x10, 2, 4, Instruction::STOP, "STOP"),
         Opcode::new(0x76, 1, 4, Instruction::HALT, "HALT"),

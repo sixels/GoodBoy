@@ -41,7 +41,7 @@ impl Cpu {
             pc: 0x0100,
             regs,
 
-            ime: false,
+            ime: true,
             set_ei: 0,
             set_di: 0,
 
@@ -56,7 +56,7 @@ impl Cpu {
     pub fn run_callback(&mut self, mut callback: impl FnMut(&mut Self)) -> u32 {
         callback(self);
         let clocks = self.tick().unwrap();
-        self.bus.tick(clocks)
+        self.bus.sync(clocks)
     }
 
     pub fn tick(&mut self) -> Result<u32, Box<dyn std::error::Error>> {
@@ -128,15 +128,15 @@ impl Cpu {
     }
 
     fn update_ime(&mut self) {
-        if self.set_ei == 1 {
-            self.ime = true;
-        }
         if self.set_di == 1 {
             self.ime = false;
         }
+        if self.set_ei == 1 {
+            self.ime = true;
+        }
 
-        self.set_ei = self.set_ei.saturating_sub(1);
         self.set_di = self.set_di.saturating_sub(1);
+        self.set_ei = self.set_ei.saturating_sub(1);
     }
 
     /// Handle interruptions
@@ -145,29 +145,26 @@ impl Cpu {
             return 0;
         }
 
-        let interruptions = self.bus.ienable & self.bus.iflag;
-        if interruptions == 0 {
+        let triggered = self.bus.ienable & self.bus.iflag;
+        // if self.bus.ienable & 0x04 != 0 || self.bus.iflag & 0x04 != 0 {
+        //     println!("ie: {:08b}\nif: {:08b}", self.bus.ienable, self.bus.iflag);
+        // }
+        if triggered == 0 {
             return 0;
         }
 
         self.halted = false;
-        if !self.ime {
+        if self.ime == false {
             return 0;
         }
         self.ime = false;
 
-        // Get the interruption with higher precedence
-        let triggered = interruptions.trailing_zeros();
-        assert!(triggered < 5);
-
-        let triggered = triggered as u8;
-        self.bus.iflag &= !(1 << triggered);
-
+        let n = triggered.trailing_zeros();
+        assert!(n < 5);
+        self.bus.iflag &= !(1 << n);
         let pc = self.pc;
         self.push_stack(pc);
-        self.pc = 0x40 | ((triggered as u16) << 3);
-
-        log::debug!("Interruption triggered: {triggered:?}");
+        self.pc = 0x40 | ((n as u16) << 3);
 
         16
     }
@@ -426,9 +423,16 @@ impl Cpu {
                 self.push_stack(value);
             }
 
-            Instruction::DI => self.set_di = 2,
-            Instruction::EI => self.set_ei = 2,
+            Instruction::DI => {
+                println!("DI");
+                self.set_di = 2;
+            },
+            Instruction::EI => {
+                println!("SET_EI");
+                self.set_ei = 2;
+            }
             Instruction::RETI => {
+                println!("RETI");
                 self.pc = self.pop_stack();
                 self.set_ei = 1;
             }

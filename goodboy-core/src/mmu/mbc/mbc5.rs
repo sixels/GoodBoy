@@ -106,25 +106,26 @@ impl Mbc for Mbc5 {
     }
 
     fn rom_read(&self, addr: u16) -> u8 {
-        let mut addr = addr as usize;
-
-        if addr >= 0x4000 {
-            addr = (addr & 0x3FFF) | (self.rom_bank * 0x4000)
-        }
+        let addr = if addr >= 0x4000 {
+            (self.rom_bank * 0x4000) | ((addr as usize) & 0x3FFF)
+        } else {
+            addr as usize
+        };
         self.rom[addr]
     }
     fn ram_read(&self, addr: u16) -> u8 {
         if !self.ram_enabled {
             return 0;
         }
-        self.ram[(self.ram_bank * 0x2000) | ((addr as usize) & 0x1FFF)]
+        let addr = (self.ram_bank * 0x2000) | ((addr as usize) & 0x1FFF);
+        self.ram[addr]
     }
     fn rom_write(&mut self, addr: u16, value: u8) {
         match addr {
             0x0000..=0x1FFF => self.ram_enabled = value == 0x0A,
-            0x2000..=0x2FFF => self.rom_bank = (self.rom_bank & 0x100) | value as usize,
-            0x3000..=0x3fff => {
-                self.rom_bank = (self.rom_bank & 0x0FF) | ((0x1 & value as usize) << 8)
+            0x2000..=0x2FFF => self.rom_bank = (self.rom_bank & 0x100) | (value as usize),
+            0x3000..=0x3FFF => {
+                self.rom_bank = (self.rom_bank & 0x0FF) | (((value as usize) & 0x1) << 8)
             }
             0x4000..=0x5FFF => self.ram_bank = (value & 0x0F) as usize,
             0x6000..=0x7FFF => {}

@@ -63,6 +63,7 @@ pub struct Gpu {
 
     pub interrupt_vblank: bool,
     pub interrupt_lcd: bool,
+    pub interrupt: u8,
     clocks: u32,
 
     pub vblanked: bool,
@@ -77,6 +78,8 @@ pub struct Gpu {
     cgb_sppal_auto_inc: bool,
     cgb_sppal_addr: u8,
     cgb_sppal: [[Rgb555; 4]; 8],
+
+    hblanking: bool,
 }
 
 impl Gpu {
@@ -109,6 +112,7 @@ impl Gpu {
 
             interrupt_vblank: false,
             interrupt_lcd: false,
+            interrupt: 0,
             clocks: 0,
             vblanked: false,
 
@@ -120,6 +124,8 @@ impl Gpu {
             cgb_sppal_auto_inc: false,
             cgb_sppal_addr: 0,
             cgb_sppal: [[Color::RGB555_WHITE; 4]; 8],
+
+            hblanking: false,
         }
     }
 
@@ -129,84 +135,70 @@ impl Gpu {
             return;
         }
 
-        let clocks = self.clocks + clocks;
+        let mut clocks = clocks;
 
-        let (clocks, mode) = match self.mode {
-            GpuMode::OAMSearch => {
-                if clocks >= 80 {
-                    (0, GpuMode::PixelTransfer)
-                } else {
-                    (clocks, self.mode)
+        while clocks > 0 {
+            let ran_clocks = if clocks >= 80 { 80 } else { clocks };
+            self.clocks += ran_clocks;
+            clocks -= ran_clocks;
+
+            // Full line takes 114 ticks
+            if self.clocks >= 456 {
+                self.clocks -= 456;
+                self.scan_line = (self.scan_line + 1) % 154;
+                self.interrupt_lyc();
+
+                // This is a VBlank line
+                if self.scan_line >= 144 && self.mode != GpuMode::VBlank {
+                    self.change_mode(GpuMode::VBlank);
                 }
             }
-            GpuMode::PixelTransfer => {
-                if clocks >= 172 {
-                    self.render_scan_line();
 
-                    if self.lcd_status.hblank_check() {
-                        self.interrupt_lcd = true;
+            // This is a normal line
+            if self.scan_line < 144 {
+                if self.clocks <= 80 {
+                    if self.mode != GpuMode::OAMSearch {
+                        self.change_mode(GpuMode::OAMSearch);
                     }
-
-                    (0, GpuMode::HBlank)
+                } else if self.clocks <= (80 + 172) {
+                    // 252 cycles
+                    if self.mode != GpuMode::PixelTransfer {
+                        self.change_mode(GpuMode::PixelTransfer);
+                    }
                 } else {
-                    (clocks, GpuMode::PixelTransfer)
+                    // the remaining 204
+                    if self.mode != GpuMode::HBlank {
+                        self.change_mode(GpuMode::HBlank);
+                    }
                 }
             }
+        }
+    }
+
+    fn change_mode(&mut self, mode: GpuMode) {
+        self.mode = mode;
+
+        if match self.mode {
             GpuMode::HBlank => {
-                if clocks >= 204 {
-                    self.scan_line += 1;
-
-                    // ly becomes 144 before vblank interrupt
-                    if self.scan_line > 143 {
-                        self.vblanked = true;
-                        self.interrupt_vblank = true;
-
-                        if self.lcd_status.vblank_check() {
-                            self.interrupt_lcd = true;
-                        }
-
-                        (0, GpuMode::VBlank)
-                    } else {
-                        if self.lcd_status.hblank_check() {
-                            self.interrupt_lcd = true;
-                        }
-
-                        (0, GpuMode::OAMSearch)
-                    }
-                } else {
-                    (clocks, GpuMode::HBlank)
-                }
+                self.render_scan_line();
+                self.hblanking = true;
+                self.lcd_status.hblank_check()
             }
             GpuMode::VBlank => {
-                if clocks >= 456 {
-                    self.scan_line += 1;
-
-                    if self.scan_line > 153 {
-                        self.scan_line = 0;
-
-                        if self.lcd_status.oam_check() {
-                            self.interrupt_lcd = true;
-                        }
-
-                        (0, GpuMode::OAMSearch)
-                    } else {
-                        (0, GpuMode::VBlank)
-                    }
-                } else {
-                    (clocks, GpuMode::VBlank)
-                }
+                self.interrupt |= 0x01;
+                self.vblanked = true;
+                self.lcd_status.vblank_check()
             }
-        };
-
-        self.interrupt_lyc();
-
-        self.clocks = clocks;
-        self.mode = mode;
+            GpuMode::OAMSearch => self.lcd_status.oam_check(),
+            _ => false,
+        } {
+            self.interrupt |= 0x02;
+        }
     }
 
     fn interrupt_lyc(&mut self) {
         if self.lcd_status.scanline_check() && self.scan_line_check == self.scan_line {
-            self.interrupt_lcd = true
+            self.interrupt |= 0x02;
         }
     }
 
