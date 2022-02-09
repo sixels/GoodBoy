@@ -80,7 +80,7 @@ pub fn update_vm(
 
     if let Some(vm) = vm.as_mut() {
         while clocks < total_clocks {
-            clocks += vm.tick() as u32;
+        clocks += vm.tick();
 
             if vm.check_vblank() {
                 if let Err(mpsc::TrySendError::Disconnected(..)) =

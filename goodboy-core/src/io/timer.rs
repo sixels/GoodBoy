@@ -1,3 +1,5 @@
+use std::hint::unreachable_unchecked;
+
 use crate::mmu::MemoryAccess;
 
 #[derive(Debug)]
@@ -50,34 +52,41 @@ impl MemoryAccess for Timer {
                         16 => 1,
                         64 => 2,
                         256 => 3,
-                        _ => 0,
+                        1024 => 0,
+                        _ => {
+                            // SAFETY:
+                            // `self.step` is guaranteed to always be either one of the following
+                            // values 16, 64, 256, or 1024, because it is already initialized as 256
+                            // and its default value is only writen in `self.mem_write()` function,
+                            // with a strict possibility of values defined by a `match` block.
+                            unsafe { unreachable_unchecked() }
+                        }
                     })
             }
-            _ => panic!("Invalid Timer address"),
+            _ => panic!("Reading an invalid Timer address: {addr}"),
         }
     }
     fn mem_write(&mut self, addr: u16, value: u8) {
         match addr {
             0xFF04 => self.div = 0,
-            0xFF05 => {
-                println!("TIMA = {value:02x}");
-                self.counter = value;
-            }
-            0xFF06 => {
-                println!("TMA = {value:02x}");
-                self.modulo = value;
-            }
+            0xFF05 => self.counter = value,
+            0xFF06 => self.modulo = value,
             0xFF07 => {
-                println!("TAC = {value:04b}");
-                self.is_enabled = value & 0x4 != 0;
-                self.step = match value & 0x3 {
+                self.is_enabled = value & 0x04 != 0;
+                self.step = match value & 0x03 {
                     1 => 16,
                     2 => 64,
                     3 => 256,
-                    _ => 1024,
+                    0 => 1024,
+                    _ => {
+                        // SAFETY:
+                        // `value` will always be a number within 0 and 3 because of the bitwise-and
+                        // operation on bits 0 and 1.
+                        unsafe { unreachable_unchecked() }
+                    }
                 };
             }
-            _ => panic!("Invalid Timer address"),
+            _ => panic!("Writing to invalid Timer address: {addr}"),
         }
     }
 }

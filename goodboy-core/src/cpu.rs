@@ -67,13 +67,14 @@ impl Cpu {
             n => return Ok(n),
         };
 
-        Ok(if self.halted {
-            4
-        } else {
-            // Run the instruction
-            let opcode = self.fetch_and_decode();
-            self.exec_opcode(opcode)?
-        })
+        match self.halted {
+            true => Ok(4),
+            false => {
+                // Run the instruction
+                let opcode = self.fetch_and_decode();
+                self.exec_opcode(opcode).map_err(|e| e.into())
+            }
+        }
     }
 
     /// Get the next byte and increment the PC by 1.
@@ -423,16 +424,9 @@ impl Cpu {
                 self.push_stack(value);
             }
 
-            Instruction::DI => {
-                println!("DI");
-                self.set_di = 2;
-            },
-            Instruction::EI => {
-                println!("SET_EI");
-                self.set_ei = 2;
-            }
+            Instruction::DI => self.set_di = 2,
+            Instruction::EI => self.set_ei = 2,
             Instruction::RETI => {
-                println!("RETI");
                 self.pc = self.pop_stack();
                 self.set_ei = 1;
             }
@@ -609,7 +603,7 @@ impl Cpu {
     fn branch_ret(&mut self, condition: bool) -> u32 {
         if condition {
             self.pc = self.pop_stack();
-            16
+            20
         } else {
             8
         }
