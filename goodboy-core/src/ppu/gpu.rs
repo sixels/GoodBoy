@@ -79,7 +79,7 @@ pub struct Gpu {
     cgb_sppal_addr: u8,
     cgb_sppal: [[Rgb555; 4]; 8],
 
-    hblanking: bool,
+    pub hblanking: bool,
 }
 
 impl Gpu {

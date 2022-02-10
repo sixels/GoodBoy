@@ -6,7 +6,11 @@ use crate::{
     ppu::Gpu,
 };
 
-use super::{cartridge::Cartridge, dma::Dma, Mbc, MemoryAccess};
+use super::{
+    cartridge::Cartridge,
+    dma::{Dma, DmaMode},
+    Mbc, MemoryAccess,
+};
 
 const WRAM_SIZE: usize = 0x8000;
 const ZRAM_SIZE: usize = 0x7F;
@@ -192,47 +196,46 @@ impl Bus {
 
     fn start_dma(&mut self) -> u32 {
         match self.dma.dma_mode {
-            0 if self.dma.dma_start => self.start_gdma(),
-            1 if self.dma.dma_start => self.start_hdma(),
+            Some(DmaMode::Gdma) => self.start_gdma(),
+            Some(DmaMode::Hdma) => self.start_hdma(),
             _ => 0x00,
         }
     }
     fn start_hdma(&mut self) -> u32 {
-        assert!(self.dma.dma_start && self.dma.dma_mode == 1);
-
-        let src_addr = self.dma.src;
-        for i in 0x00..0x10 {
-            let src = self.mem_read(src_addr + i);
-            self.mem_write(self.dma.dst + i, src)
+        if !self.gpu.hblanking {
+            return 0;
         }
-        self.dma.src += 0x10;
-        self.dma.dst += 0x10;
 
-        self.dma.dma_length = self.dma.dma_length.wrapping_sub(1);
+        self.dma_cpblk(0x10);
+
+        self.dma.dma_length -= 1;
 
         if self.dma.dma_length == 0x7F {
-            self.dma.dma_start = false;
+            self.dma.dma_mode = None
         }
 
         0x08
     }
     fn start_gdma(&mut self) -> u32 {
-        assert!(self.dma.dma_start && self.dma.dma_mode == 0);
-
         let gdma_len = 1 + self.dma.dma_length as u16;
 
+        let blk_size = gdma_len * 0x10;
+        self.dma_cpblk(blk_size);
+
+        self.dma.dma_length = 0x7F;
+        self.dma.dma_mode = None;
+
+        0x08 * gdma_len as u32
+    }
+    fn dma_cpblk(&mut self, blk_size: u16) {
         let src_addr = self.dma.src;
-        let blk_size = 0x10 * gdma_len;
+
         for i in 0x00..blk_size {
             let src = self.mem_read(src_addr + i);
             self.mem_write(self.dma.dst + i, src)
         }
         self.dma.src += blk_size;
         self.dma.dst += blk_size;
-        self.dma.dma_length = 0x7F;
-        self.dma.dma_start = false;
-
-        0x08 * gdma_len as u32
     }
 }
 
