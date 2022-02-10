@@ -2,7 +2,7 @@ use std::{fs, path::PathBuf};
 
 use crate::mmu::cartridge::MBC_KIND_ADDR;
 
-use super::{Mbc, MbcCapability, MbcKind};
+use super::{Mbc, MbcCapability, MbcDescription};
 
 pub struct Mbc1 {
     capabilities: Vec<MbcCapability>,
@@ -60,15 +60,15 @@ impl Mbc1 {
 }
 
 impl Mbc for Mbc1 {
-    fn kind(&self) -> Option<super::MbcKind<'_>> {
-        Some(MbcKind::MBC1(&self.capabilities))
+    fn description(&self) -> Option<super::MbcDescription<'_>> {
+        Some(MbcDescription::MBC1(&self.capabilities))
     }
 
     fn rom_read(&self, addr: u16) -> u8 {
-        let addr = if addr <= 0x3FFF {
-            addr as usize
+        let addr = if addr >= 0x4000 {
+            ((self.rom_bank * 0x4000) | ((addr as usize) & 0x3FFF)) % self.rom.len()
         } else {
-            (self.rom_bank * 0x4000) | ((addr as usize) & 0x3FFF)
+            addr as usize
         };
         self.rom[addr]
     }
@@ -96,7 +96,11 @@ impl Mbc for Mbc1 {
                 if self.ram_mode {
                     self.ram_bank = (value as usize) & 0x03;
                 } else {
-                    self.rom_bank = self.rom_bank & 0x1F | (((value as usize) & 0x03) << 5);
+                    let value = value as usize;
+                    self.rom_bank = match (self.rom_bank & 0x1F) | ((value & 0x03) << 5) {
+                        n @ (0x00 | 0x20 | 0x40 | 0x60) => n + 1,
+                        n => n,
+                    };
                 }
             }
             0x6000..=0x7FFF => self.ram_mode = value & 0x01 == 0x01,
@@ -108,14 +112,9 @@ impl Mbc for Mbc1 {
         if !self.ram_enabled {
             return;
         }
-        // self.ram_enabled = false;
 
-        let ram_bank = if self.ram_mode  {
-            self.ram_bank
-        } else {
-            0
-        };
-        let addr = ((addr as usize) & 0x1FFF) | (ram_bank * 0x2000);
+        let ram_bank = if self.ram_mode { self.ram_bank } else { 0 };
+        let addr = ((addr as usize) & 0x1FFF) + (ram_bank * 0x2000);
 
         self.ram[addr as usize] = value;
     }

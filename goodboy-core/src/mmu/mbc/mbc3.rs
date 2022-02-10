@@ -6,7 +6,7 @@ use std::{
 
 use crate::mmu::{cartridge::MBC_KIND_ADDR, mbc::MbcCapability};
 
-use super::{Mbc, MbcKind};
+use super::{Mbc, MbcDescription};
 
 #[derive(Default)]
 struct Rtc {
@@ -156,8 +156,8 @@ impl Mbc3 {
 }
 
 impl Mbc for Mbc3 {
-    fn kind(&self) -> Option<super::MbcKind<'_>> {
-        Some(MbcKind::MBC3(&self.capabilities))
+    fn description(&self) -> Option<super::MbcDescription<'_>> {
+        Some(MbcDescription::MBC3(&self.capabilities))
     }
 
     fn rom_read(&self, addr: u16) -> u8 {

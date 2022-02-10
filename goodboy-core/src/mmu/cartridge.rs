@@ -93,8 +93,8 @@ impl Debug for Cartridge {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Cartridge")
             .field("title", &self.title)
-            .field("mbc", &self.mbc.kind())
-            .field("ram_size", &self.ram_size)
+            .field("mbc", &self.mbc.description())
+            .field("ram_size", &(self.ram_size/8))
             .finish()
     }
 }
