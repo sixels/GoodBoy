@@ -38,7 +38,7 @@ pub struct Registers {
 
 impl Registers {
     pub fn initialize(gb_mode: GbMode) -> Registers {
-        let regs = Self {
+        let mut regs = Self {
             a: 0x01,
             b: 0x00,
             c: 0x13,
@@ -50,7 +50,12 @@ impl Registers {
         };
 
         if gb_mode == GbMode::Cgb {
-            return Self { a: 0x11, ..regs };
+            regs.a = 0x11;
+            // regs.c = 0x30;
+            // regs.d = 0xFF;
+            // regs.e = 0x56;
+            // regs.h = 0x00;
+            // regs.l = 0x0D;
         }
 
         regs
@@ -106,28 +111,13 @@ impl Registers {
     }
 }
 
-impl Default for Registers {
-    fn default() -> Self {
-        Self {
-            a: 0x01,
-            b: 0x00,
-            c: 0x13,
-            d: 0x00,
-            e: 0xD8,
-            h: 0x01,
-            l: 0x4D,
-            f: Flags::from(0xB0),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn default_register() {
-        let registers = Registers::default();
+        let registers = Registers::initialize(GbMode::Dmg);
 
         assert_eq!(registers.af(), 0x01B0);
         assert_eq!(registers.bc(), 0x0013);
@@ -137,7 +127,7 @@ mod tests {
 
     #[test]
     fn assign_register_pair() {
-        let mut registers = Registers::default();
+        let mut registers = Registers::initialize(GbMode::Dmg);
 
         registers.set_af(0x4200);
         assert_eq!(registers.a, 0x42);
@@ -158,7 +148,7 @@ mod tests {
 
     #[test]
     fn inc_dec_hl() {
-        let mut registers = Registers::default();
+        let mut registers = Registers::initialize(GbMode::Dmg);
 
         registers.set_hl(0xFFFF);
         assert_eq!(registers.hli(), 0xFFFF);

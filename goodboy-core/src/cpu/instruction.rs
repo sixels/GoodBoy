@@ -196,7 +196,7 @@ lazy_static::lazy_static! {
         nop!(0xFD),
 
 
-        Opcode::new(0x10, 2, 4, Instruction::STOP, "STOP"),
+        Opcode::new(0x10, 1, 4, Instruction::STOP, "STOP"),
         Opcode::new(0x76, 1, 4, Instruction::HALT, "HALT"),
 
         Opcode::new(0x01, 3, 12, Instruction::LDIM16(Operand::BC), "LD BC,u16"),
@@ -749,6 +749,18 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn check_opcode_duplicates() {
+        env_logger::init();
+
+        // unprefixed
+        let has_duplicates = has_duplicated_opcodes(OPCODE_MAP.values().collect(), false);
+        assert!(!has_duplicates);
+        // prefixed
+        let cb_has_duplicates = has_duplicated_opcodes(CB_OPCODE_MAP.values().collect(), true);
+        assert!(!cb_has_duplicates);
+    }
+
     fn has_duplicated_opcodes(source: Vec<&&Opcode>, prefixed: bool) -> bool {
         let mut unique = source.clone();
 
@@ -767,17 +779,5 @@ mod tests {
             .collect::<Vec<_>>();
 
         unique.len() != opcode_vec.len()
-    }
-
-    #[test]
-    fn check_opcode_duplicates() {
-        env_logger::init();
-
-        // unprefixed
-        let has_duplicates = has_duplicated_opcodes(OPCODE_MAP.values().collect(), false);
-        assert!(!has_duplicates);
-        // prefixed
-        let cb_has_duplicates = has_duplicated_opcodes(CB_OPCODE_MAP.values().collect(), true);
-        assert!(!cb_has_duplicates);
     }
 }
