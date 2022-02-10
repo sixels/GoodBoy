@@ -128,7 +128,7 @@ impl epi::App for App {
                 _ => {}
             }
 
-            let fps = self.fps.counter();
+            let fps = self.fps.current_rate();
             ui.label(format!("FPS: {fps}"));
 
             self.display.map(|display| {

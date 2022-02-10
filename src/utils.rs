@@ -72,7 +72,7 @@ impl Fps {
         self.last_fps
     }
 
-    pub fn counter(&self) -> usize {
+    pub fn current_rate(&self) -> usize {
         self.last_fps
     }
 }
