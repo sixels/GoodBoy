@@ -1,4 +1,8 @@
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    io::{self, Read},
+    path::{Path, PathBuf},
+};
 
 use crate::mmu::cartridge::MBC_KIND_ADDR;
 
@@ -9,7 +13,7 @@ pub struct Mbc1 {
 
     rom: Vec<u8>,
     ram: Vec<u8>,
-    save: Option<PathBuf>,
+    save_path: Option<PathBuf>,
 
     rom_bank: usize,
     ram_bank: usize,
@@ -18,34 +22,45 @@ pub struct Mbc1 {
 }
 
 impl Mbc1 {
-    pub fn new(rom: Vec<u8>, ram_size: usize) -> Box<dyn Mbc + 'static> {
-        let (ram, save, capabilities) = match rom[MBC_KIND_ADDR] {
-            0x02 => (None, None, vec![MbcCapability::Ram]),
-            0x03 => {
-                let path = PathBuf::from("save_file.gbsave");
-                let ram = match fs::read(&path) {
-                    Ok(buffer) => Some(buffer),
-                    // Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
-                    Err(_) => None,
-                };
+    pub fn new(
+        rom: Vec<u8>,
+        ram_size: usize,
+        save_path: impl AsRef<Path>,
+    ) -> Box<dyn Mbc + 'static> {
+        let capabilities = Mbc1::get_capabilities(rom[MBC_KIND_ADDR]);
 
-                (
-                    ram,
-                    Some(path),
-                    vec![MbcCapability::Ram, MbcCapability::Battery],
-                )
-            }
-            0x01 | _ => (Some(Vec::new()), None, vec![]),
+        let mut ram = if capabilities.contains(&MbcCapability::Ram) {
+            std::iter::repeat(0).take(ram_size + 8).collect()
+        } else {
+            Vec::new()
         };
 
-        let ram = ram.unwrap_or_else(|| std::iter::repeat(0).take(ram_size).collect());
+        let save_path = if capabilities.contains(&MbcCapability::Battery) {
+            Some(save_path.as_ref().to_path_buf())
+        } else {
+            None
+        };
+
+        save_path.as_ref().map(|path| {
+            let mut buf = vec![];
+            fs::File::open(path)
+                .and_then(|mut save_file| save_file.read_to_end(&mut buf))
+                .map_or_else(
+                    |e| {
+                        if e.kind() != io::ErrorKind::NotFound {
+                            panic!("Error reading file \"{path:?}\": {e:?}")
+                        }
+                    },
+                    |_| ram = buf,
+                )
+        });
 
         Box::new(Mbc1 {
             capabilities,
 
             rom,
             ram,
-            save,
+            save_path,
 
             rom_bank: 1,
             ram_bank: 0,
@@ -56,6 +71,18 @@ impl Mbc1 {
             // 0Ah enable RAM
             ram_enabled: false,
         })
+    }
+
+    pub fn get_capabilities(cartridge_kind: u8) -> Vec<MbcCapability> {
+        match cartridge_kind {
+            // mbc1
+            0x01 => vec![],
+            // mbc1 + ram
+            0x02 => vec![MbcCapability::Ram],
+            // mbc1 + ram + battery
+            0x03 => vec![MbcCapability::Ram, MbcCapability::Battery],
+            _ => panic!("Invalid MBC1 cartridge"),
+        }
     }
 }
 
@@ -114,7 +141,7 @@ impl Mbc for Mbc1 {
         }
 
         let ram_bank = if self.ram_mode { self.ram_bank } else { 0 };
-        let addr = ((addr as usize) & 0x1FFF) + (ram_bank * 0x2000);
+        let addr = (ram_bank * 0x2000) | ((addr as usize) & 0x1FFF);
 
         self.ram[addr as usize] = value;
     }
@@ -122,7 +149,7 @@ impl Mbc for Mbc1 {
 
 impl Drop for Mbc1 {
     fn drop(&mut self) {
-        match self.save {
+        match self.save_path {
             None => (),
             Some(ref path) => {
                 log::info!("Saving game to file {:?}", path);

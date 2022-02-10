@@ -27,9 +27,7 @@ impl Mbc5 {
         ram_size: usize,
         save_path: impl AsRef<Path>,
     ) -> Box<dyn Mbc + 'static> {
-        let cart_kind = rom[MBC_KIND_ADDR];
-
-        let capabilities = Mbc5::get_capabilities(cart_kind);
+        let capabilities = Mbc5::get_capabilities(rom[MBC_KIND_ADDR]);
 
         let mut ram = if capabilities.contains(&MbcCapability::Ram) {
             std::iter::repeat(0).take(ram_size + 8).collect()

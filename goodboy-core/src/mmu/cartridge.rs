@@ -49,13 +49,13 @@ impl Cartridge {
             })
             .collect::<String>();
 
-        let save_file = format!("{}.gbsave", title.to_ascii_lowercase());
+        let save_path = format!("{}.gbsave", title.to_ascii_lowercase());
 
         let mbc = match rom[MBC_KIND_ADDR] {
             0x00 => mbc::Mbc0::new(rom.to_owned()),
-            0x01..=0x03 => mbc::Mbc1::new(rom.to_owned(), ram_size),
-            0x0F..=0x13 => mbc::Mbc3::new(rom.to_owned(), ram_size, &save_file),
-            0x19..=0x1B => mbc::Mbc5::new(rom.to_owned(), ram_size, &save_file),
+            0x01..=0x03 => mbc::Mbc1::new(rom.to_owned(), ram_size, &save_path),
+            0x0F..=0x13 => mbc::Mbc3::new(rom.to_owned(), ram_size, &save_path),
+            0x19..=0x1B => mbc::Mbc5::new(rom.to_owned(), ram_size, &save_path),
             _ => panic!("Unsupported cartridge MBC"),
         };
 
@@ -94,7 +94,7 @@ impl Debug for Cartridge {
         f.debug_struct("Cartridge")
             .field("title", &self.title)
             .field("mbc", &self.mbc.description())
-            .field("ram_size", &(self.ram_size/8))
+            .field("ram_size", &(self.ram_size / 8))
             .finish()
     }
 }
