@@ -75,7 +75,7 @@ pub struct Bus {
     wram_bank: usize,
 
     speed: u8,
-    toggle_speed: bool,
+    speed_switch: bool,
 }
 
 impl Bus {
@@ -102,7 +102,7 @@ impl Bus {
             wram_bank: 1,
             dma: Default::default(),
             speed: 1,
-            toggle_speed: false,
+            speed_switch: false,
         };
         log::info!("Loaded cartridge: {:?}", bus.cartridge);
         log::info!("Game Boy mode: {gb_mode:?}");
@@ -150,18 +150,22 @@ impl Bus {
     /// Sync the IO devices
     pub fn sync(&mut self, clocks: u32) -> u32 {
         let dma_clocks = self.start_dma();
-        let Self {
-            timer,
+
+        let Bus {
+            ref speed,
             iflag,
+
+            timer,
+            joypad,
             gpu,
             serial,
-            speed,
-            joypad,
             ..
         } = self;
 
-        let cpu_clocks = clocks + dma_clocks * (*speed as u32);
-        let gpu_clocks = clocks / (*speed as u32) + dma_clocks;
+        let speed = *speed;
+
+        let cpu_clocks = clocks + dma_clocks * (speed as u32);
+        let gpu_clocks = clocks / (speed as u32) + dma_clocks;
 
         // update the timer
         timer.sync(cpu_clocks);
@@ -183,22 +187,17 @@ impl Bus {
     }
 
     pub fn switch_speed(&mut self) {
-        if self.toggle_speed {
-            if self.speed == 2 {
-                self.speed = 1
-            } else {
-                self.speed = 2
-            }
-
-            self.toggle_speed = false;
+        if self.speed_switch {
+            self.speed = [2, 1][(self.speed - 1) as usize];
         }
+        self.speed_switch = false;
     }
 
     fn start_dma(&mut self) -> u32 {
         match self.dma.dma_mode {
             Some(DmaMode::Gdma) => self.start_gdma(),
             Some(DmaMode::Hdma) => self.start_hdma(),
-            _ => 0x00,
+            None => 0x00,
         }
     }
     fn start_hdma(&mut self) -> u32 {
@@ -266,7 +265,7 @@ impl MemoryAccess for Bus {
 
             0xFF46 => 0,
             0xff40..=0xff4b | 0xff4f => self.gpu.mem_read(addr),
-            0xff4d => ((self.speed >> 1) << 7) | self.toggle_speed as u8,
+            0xff4d => ((self.speed & 0x02) << 6) | self.speed_switch as u8,
             0xff51..=0xff55 => self.dma.mem_read(addr),
             0xff68..=0xff6b => self.gpu.mem_read(addr),
 
@@ -275,7 +274,6 @@ impl MemoryAccess for Bus {
             0xFF80..=0xFFFE => self.zram[(addr & 0x7F) as usize],
 
             0xFFFF => self.ienable,
-            // 0xFF00..=0xFF7F => self.io_registers[(addr & 0xFF) as usize],
             _ => 0,
         }
     }
@@ -316,7 +314,7 @@ impl MemoryAccess for Bus {
             0xff40..=0xff4b | 0xff4f => self.gpu.mem_write(addr, value),
             0xff4d => {
                 if value & 1 != 0 {
-                    self.toggle_speed = true
+                    self.speed_switch = true
                 }
             }
             0xff51..=0xff55 => self.dma.mem_write(addr, value),
@@ -333,9 +331,6 @@ impl MemoryAccess for Bus {
             0xFF80..=0xFFFE => self.zram[(addr & 0x7F) as usize] = value,
 
             0xFFFF => self.ienable = value,
-
-            // 0xff4d => log::warn!("0xff4d not implemented yet"),
-            // 0xFF00..=0xFF7F => self.io_registers[(addr & 0xFF) as usize] = value,
             _ => {}
         }
     }

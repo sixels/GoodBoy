@@ -26,10 +26,10 @@ enum GpuMode {
 impl From<GpuMode> for u8 {
     fn from(mode: GpuMode) -> Self {
         match mode {
+            GpuMode::HBlank => 0,
             GpuMode::VBlank => 1,
             GpuMode::OAMSearch => 2,
             GpuMode::PixelTransfer => 3,
-            _ => 0,
         }
     }
 }
@@ -72,7 +72,7 @@ pub struct Gpu {
     vram_bank: usize,
     cgb_bgpal_auto_inc: bool,
     cgb_bgpal_addr: u8,
-    // CGB stores color as RGB555, we need to convert it to RGBA
+    // CGB stores color as RGB555, we need to convert it to RGBA later
     cgb_bgpal: [[Rgb555; 4]; 8], // 8 palettes with 4 colors per palette
 
     cgb_sppal_auto_inc: bool,
@@ -134,39 +134,36 @@ impl Gpu {
         if !self.lcd_control.lcd_on() {
             return;
         }
+        self.hblanking = false;
 
         let mut clocks = clocks;
 
         while clocks > 0 {
             let ran_clocks = if clocks >= 80 { 80 } else { clocks };
+
             self.clocks += ran_clocks;
             clocks -= ran_clocks;
 
-            // Full line takes 114 ticks
             if self.clocks >= 456 {
                 self.clocks -= 456;
                 self.scan_line = (self.scan_line + 1) % 154;
                 self.interrupt_lyc();
 
-                // This is a VBlank line
                 if self.scan_line >= 144 && self.mode != GpuMode::VBlank {
                     self.change_mode(GpuMode::VBlank);
                 }
             }
 
-            // This is a normal line
             if self.scan_line < 144 {
                 if self.clocks <= 80 {
                     if self.mode != GpuMode::OAMSearch {
                         self.change_mode(GpuMode::OAMSearch);
                     }
                 } else if self.clocks <= (80 + 172) {
-                    // 252 cycles
                     if self.mode != GpuMode::PixelTransfer {
                         self.change_mode(GpuMode::PixelTransfer);
                     }
                 } else {
-                    // the remaining 204
                     if self.mode != GpuMode::HBlank {
                         self.change_mode(GpuMode::HBlank);
                     }
@@ -190,7 +187,7 @@ impl Gpu {
                 self.lcd_status.vblank_check()
             }
             GpuMode::OAMSearch => self.lcd_status.oam_check(),
-            _ => false,
+            GpuMode::PixelTransfer => false,
         } {
             self.interrupt |= 0x02;
         }
@@ -214,7 +211,7 @@ impl Gpu {
 
     fn render_bg(&mut self) {
         let do_render = self.gb_mode == GbMode::Cgb || self.lcd_control.bg_enabled();
-
+        
         let win_y = if !self.lcd_control.win_on()
             || (self.gb_mode != GbMode::Dmg && !self.lcd_control.bg_enabled())
         {
@@ -300,6 +297,7 @@ impl Gpu {
                 2
             };
 
+            
             let color = if self.gb_mode != GbMode::Dmg {
                 Color::new_rgb555(self.cgb_bgpal[paletten][colorn])
             } else {
@@ -340,7 +338,7 @@ impl Gpu {
             } as u16;
 
             let tile_number = sprite.tile_number & if sprite_size == 16 { 0xFE } else { 0xFF };
-            let tile_addr = 0x8000u16 + tile_number * 16 + tile_y * 2;
+            let tile_addr = 0x8000 + tile_number * 16 + tile_y * 2;
 
             let vram_bank = self.vram_bank;
             if self.gb_mode == GbMode::Cgb {
@@ -459,10 +457,10 @@ impl MemoryAccess for Gpu {
             0xff68 => self.cgb_bgpal_addr | if self.cgb_bgpal_auto_inc { 0x80 } else { 0 },
             0xff69 => {
                 let paletten = (self.cgb_bgpal_addr >> 3) as usize;
-                let colorn = 0x03 & (self.cgb_bgpal_addr >> 1) as usize;
+                let colorn = ((self.cgb_bgpal_addr >> 1) & 0x03) as usize;
 
                 let color = self.cgb_bgpal[paletten][colorn];
-                if colorn & 1 == 0 {
+                if self.cgb_bgpal_addr & 1 == 0 {
                     // even
                     color.r | ((color.g & 0x07) << 5)
                 } else {
@@ -476,7 +474,7 @@ impl MemoryAccess for Gpu {
                 let colorn = 0x03 & (self.cgb_sppal_addr >> 1) as usize;
 
                 let color = self.cgb_sppal[paletten][colorn];
-                if colorn & 1 == 0 {
+                if self.cgb_sppal_addr & 1 == 0 {
                     // even
                     color.r | ((color.g & 0x07) << 5)
                 } else {
@@ -537,7 +535,7 @@ impl MemoryAccess for Gpu {
 
             0xff68 => {
                 self.cgb_bgpal_addr = value & 0x3f;
-                self.cgb_bgpal_auto_inc = value >> 7 == 1;
+                self.cgb_bgpal_auto_inc = value & 0x80 == 0x80;
             }
             0xff69 => {
                 let paletten = (self.cgb_bgpal_addr >> 3) as usize;
