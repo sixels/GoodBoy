@@ -45,7 +45,7 @@ rm -rf ${OUT_DIR}/
 
 echo "Building rust…"
 BUILD=release
-cargo build -p ${CRATE_NAME} --release --lib --target wasm32-unknown-unknown
+cargo build -p ${CRATE_NAME} --${BUILD} --lib --target wasm32-unknown-unknown
 
 
 # Get the output directory (in the workspace it is in another location)

@@ -1,7 +1,5 @@
 use std::sync::mpsc;
 
-use eframe::{egui, epi};
-
 use crate::{io::IoEvent, utils};
 
 pub struct MenuBar {
@@ -13,7 +11,7 @@ impl MenuBar {
         Self { io: io_sender }
     }
 
-    pub fn render(&self, ui: &mut egui::Ui, frame: &epi::Frame) {
+    pub fn render(&self, ui: &mut egui::Ui) {
         let io_sender = self.io.clone();
 
         egui::menu::bar(ui, |ui| {
@@ -39,7 +37,7 @@ impl MenuBar {
                 {
                     ui.separator();
                     if ui.button("Exit").clicked() {
-                        frame.quit();
+                        // frame.quit();
                     }
                 }
             });

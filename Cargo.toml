@@ -7,9 +7,8 @@ edition = "2021"
 members = ["goodboy-core"]
 
 [profile.release]
-incremental=true
+incremental = true
 # opt-level = 2
-
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -17,11 +16,21 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 goodboy_core = { path = "./goodboy-core" }
 rfd = "0.7.0"
-eframe = "0.16.0"
 env_logger = "0.9.0"
+egui = "0.16.1"
+winit = "0.26.1"
+winit_input_helper = "0.11.0"
+egui_wgpu_backend = "0.16.0"
+egui-winit = "0.16.0"
+pixels = "0.9.0"
+wgpu = "0.12.0"
+log = "0.4.14"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-smol = "1.2.5"
+pollster = "0.2.5"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2.79"
+web-sys = { version = "0.3.56", features = ["WebGl2RenderingContext"] }
 wasm-bindgen-futures = "0.4.29"
+console_log = "0.2.0"

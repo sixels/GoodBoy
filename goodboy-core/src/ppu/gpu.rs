@@ -211,7 +211,7 @@ impl Gpu {
 
     fn render_bg(&mut self) {
         let do_render = self.gb_mode == GbMode::Cgb || self.lcd_control.bg_enabled();
-        
+
         let win_y = if !self.lcd_control.win_on()
             || (self.gb_mode != GbMode::Dmg && !self.lcd_control.bg_enabled())
         {
@@ -297,7 +297,6 @@ impl Gpu {
                 2
             };
 
-            
             let color = if self.gb_mode != GbMode::Dmg {
                 Color::new_rgb555(self.cgb_bgpal[paletten][colorn])
             } else {

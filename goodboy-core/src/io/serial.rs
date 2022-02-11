@@ -13,9 +13,9 @@ impl Serial {
     fn display(&self) {
         let data = self.data;
         let char_data = char::from_u32(data as u32).unwrap().escape_default();
-        
+
         log::debug!("Serial Ouput: 0x{data:02X} ({char_data})",);
-        
+
         // write to serial message to stderr
         // let mut stderr = std::io::stderr();
         // stderr.write_all(&[data]).unwrap();

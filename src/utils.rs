@@ -1,9 +1,9 @@
 use std::future::Future;
 
-#[cfg(target_arch = "wasm32")]
-use eframe::wasm_bindgen::{self, prelude::*};
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::{self, Instant};
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
 
 trait TimeUnit<T> {
     fn now() -> Self
@@ -18,8 +18,7 @@ trait TimeUnit<T> {
 #[cfg(target_arch = "wasm32")]
 type Time = f64;
 #[cfg(not(target_arch = "wasm32"))]
-type Time = Instant;
-
+// type Time = Instant;
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 extern "C" {
@@ -51,41 +50,41 @@ impl TimeUnit<time::Duration> for Instant {
     }
 }
 
-pub struct Fps {
-    fps: usize,
-    last_fps: usize,
+// pub struct Fps {
+//     fps: usize,
+//     last_fps: usize,
 
-    start: Time,
-}
+//     start: Time,
+// }
 
-impl Fps {
-    pub fn update(&mut self) -> usize {
-        let now = Time::now();
-        if now > self.start + Time::one_sec() {
-            self.last_fps = self.fps;
-            self.fps = 0;
+// impl Fps {
+//     pub fn update(&mut self) -> usize {
+//         let now = Time::now();
+//         if now > self.start + Time::one_sec() {
+//             self.last_fps = self.fps;
+//             self.fps = 0;
 
-            self.start = now;
-        }
+//             self.start = now;
+//         }
 
-        self.fps += 1;
-        self.last_fps
-    }
+//         self.fps += 1;
+//         self.last_fps
+//     }
 
-    pub fn current_rate(&self) -> usize {
-        self.last_fps
-    }
-}
+//     pub fn current_rate(&self) -> usize {
+//         self.last_fps
+//     }
+// }
 
-impl Default for Fps {
-    fn default() -> Self {
-        Self {
-            fps: Default::default(),
-            last_fps: Default::default(),
-            start: Time::now(),
-        }
-    }
-}
+// impl Default for Fps {
+//     fn default() -> Self {
+//         Self {
+//             fps: Default::default(),
+//             last_fps: Default::default(),
+//             start: Time::now(),
+//         }
+//     }
+// }
 
 #[cfg(target_arch = "wasm32")]
 pub fn spawn<F: Future<Output = ()> + 'static>(f: F) {
@@ -93,5 +92,5 @@ pub fn spawn<F: Future<Output = ()> + 'static>(f: F) {
 }
 #[cfg(not(target_arch = "wasm32"))]
 pub fn spawn<F: Future<Output = ()> + Send + 'static>(f: F) {
-    std::thread::spawn(|| smol::future::block_on(f));
+    std::thread::spawn(|| pollster::block_on(f));
 }

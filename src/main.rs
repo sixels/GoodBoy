@@ -1,10 +1,10 @@
-use goodboy::App;
+// use goodboy::App;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn main() {
     env_logger::init();
 
-    let app = App::new();
-    let native_options = eframe::NativeOptions::default();
-    eframe::run_native(Box::new(app), native_options);
+    pollster::block_on(async move {
+        goodboy::run().await;
+    })
 }
