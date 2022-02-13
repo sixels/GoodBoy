@@ -1,6 +1,6 @@
 mod vm;
 
-use std::sync::mpsc;
+use std::{path::Path, sync::mpsc};
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::thread::{self, JoinHandle};
@@ -42,6 +42,18 @@ impl GameBoy {
             #[cfg(not(target_arch = "wasm32"))]
             vm_loop_handle: None,
         }
+    }
+
+    pub fn load_game(&mut self, game_data: &[u8]) {
+        let new_vm = VM::new_from_buffer(game_data);
+        let _ = self.vm.insert(new_vm);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn load_game_file(&mut self, path: impl AsRef<Path>) -> std::io::Result<()> {
+        let game_data = std::fs::read(path)?;
+        self.load_game(&game_data);
+        Ok(())
     }
 
     pub fn prepare(&mut self) {
