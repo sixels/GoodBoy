@@ -47,14 +47,12 @@ impl GameBoy {
     pub fn prepare(&mut self) {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            let screen_sender = self.screen_chan.0.clone();
-            let io_receiver = self.io_chan.1.take().unwrap();
-
             let vm = self.vm.take();
 
+            let screen_sender = self.screen_chan.0.clone();
+            let io_receiver = self.io_chan.1.take().unwrap();
             self.vm_loop_handle = Some(thread::spawn(move || {
-                let screen_sender_clone = screen_sender.clone();
-                thread::spawn(move || vm_loop(vm, screen_sender_clone, io_receiver));
+                vm_loop(vm, screen_sender, io_receiver);
             }));
         }
     }

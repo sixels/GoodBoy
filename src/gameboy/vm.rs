@@ -111,7 +111,7 @@ pub fn update_vm(
                     break;
                 }
                 IoEvent::Exit => return Err(()),
-                // _ => (),
+                _ => {}
             },
             Err(mpsc::TryRecvError::Empty) => break,
             Err(_) => return Err(()),
