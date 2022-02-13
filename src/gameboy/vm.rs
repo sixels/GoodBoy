@@ -102,7 +102,7 @@ pub fn update_vm(
                     vm.as_mut().map(|vm| vm.release_button(button));
                 }
                 IoEvent::InsertCartridge(buffer) => {
-                    let _ = vm.insert(VM::new_with_buffer(buffer.as_slice()));
+                    let _ = vm.insert(VM::new_from_buffer(buffer.as_slice()));
                     return Ok(0);
                 }
                 // IoEvent::SetColorScheme(color_scheme) => vm.set_color_scheme(color_scheme),

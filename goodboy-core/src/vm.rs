@@ -21,7 +21,7 @@ impl VM {
         Ok(Self { cpu: Cpu::new(bus) })
     }
 
-    pub fn new_with_buffer(rom_buffer: &[u8]) -> Self {
+    pub fn new_from_buffer(rom_buffer: &[u8]) -> Self {
         log::info!("Creating a new VM from file buffer");
 
         let bus = Bus::new(rom_buffer);
