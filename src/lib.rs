@@ -1,29 +1,24 @@
 use std::{rc::Rc, sync::mpsc};
 
-use gameboy::GameBoy;
 pub use goodboy_core::vm::{SCREEN_HEIGHT as HEIGHT, SCREEN_WIDTH as WIDTH};
 use pixels::{Pixels, SurfaceTexture};
 use winit::{
     dpi::LogicalSize,
-    event::Event,
+    event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
+use winit_input_helper::WinitInputHelper;
 
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::{self, prelude::*};
-#[cfg(target_arch = "wasm32")]
-use winit::platform::web::WindowExtWebSys;
-
-mod framework;
-mod gameboy;
+// mod framework;
+pub mod gameboy;
 mod io;
 mod utils;
 
-use framework::Framework;
-use winit_input_helper::WinitInputHelper;
+pub use gameboy::GameBoy;
+// use framework::Framework;
 
-pub async fn run() {
+pub async fn run(mut gameboy: GameBoy) {
     let event_loop = EventLoop::new();
     let window = {
         let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
@@ -83,33 +78,17 @@ pub async fn run() {
     let mut input = WinitInputHelper::new();
     let mut pixels = {
         let window_size = window.inner_size();
+        // let scale_factor = window.scale_factor();
         let surface_texture =
             SurfaceTexture::new(window_size.width, window_size.height, window.as_ref());
+
         let pixels = Pixels::new_async(WIDTH as u32, HEIGHT as u32, surface_texture)
             .await
             .expect("Pixels error");
 
-        // let framework = Framework::new(
-        //     WIDTH as u32,
-        //     HEIGHT as u32,
-        //     scale_factor as f32,
-        //     &pixels,
-        //     gameboy.io_chan.0.clone(),
-        // );
-
         pixels
     };
-    let mut gameboy = GameBoy::new();
-    let mut framework = {
-        let scale_factor = window.scale_factor();
-        Framework::new(
-            WIDTH as u32,
-            HEIGHT as u32,
-            scale_factor as f32,
-            &pixels,
-            gameboy.io_chan.0.clone(),
-        )
-    };
+
     gameboy.prepare();
 
     event_loop.run(move |ev, _, control_flow| {
@@ -121,60 +100,98 @@ pub async fn run() {
             gameboy::update_vm(&mut gameboy.vm, screen_sender, io_receiver, 0, None).ok();
         }
 
+        let GameBoy {
+            io_chan: (io_tx, _),
+            screen_chan: (_, screen_rx),
+            ..
+        } = &gameboy;
+
         match &ev {
-            Event::WindowEvent { event, .. } => {
-                framework.handle_event(&event);
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => {
+                log::info!("Exit event received");
+                *control_flow = ControlFlow::Exit;
+                return;
             }
-            Event::RedrawRequested(..) | Event::MainEventsCleared => {
+            // Event::WindowEvent { event, .. } => {
+            //     framework.handle_event(&event);
+            // }
+            Event::RedrawRequested(..) => {
                 let frame = pixels.get_frame();
 
-                match gameboy.screen_chan.1.try_recv() {
+                match screen_rx.try_recv() {
                     Ok(screen) => frame.copy_from_slice(screen.as_slice()),
-                    Err(mpsc::TryRecvError::Disconnected) => *control_flow = ControlFlow::Exit,
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        log::warn!("Screen channel was dropped");
+                        *control_flow = ControlFlow::Exit;
+                        return;
+                    }
                     _ => {}
                 }
 
-                framework.prepare(&window);
+                // framework.prepare(&window);
 
-                if let Err(_) = pixels.render_with(|encoder, render_target, context| {
-                    // Render the world texture
-                    context.scaling_renderer.render(encoder, render_target);
+                // if let Err(_) = pixels.render_with(|encoder, render_target, context| {
+                //     // Render game frame
+                //     context.scaling_renderer.render(encoder, render_target);
 
-                    // Render egui
-                    framework.render(encoder, render_target, context)?;
+                //     // Render egui
+                //     // framework.render(encoder, render_target, context)?;
 
-                    Ok(())
-                }) {
+                //     Ok(())
+                // })
+                if let Err(e) = pixels.render() {
+                    log::error!("Pixel render failed: {:?}", e);
                     *control_flow = ControlFlow::Exit;
                     return;
                 }
+            }
+            Event::MainEventsCleared => {
+                window.request_redraw();
             }
             _ => {}
         };
 
         if input.update(&ev) {
-            io::handle_input(&mut input, gameboy.io_chan.0.clone());
+            io::handle_input(input.clone(), io_tx.clone());
 
             // Update the scale factor
-            if let Some(scale_factor) = input.scale_factor() {
-                framework.scale_factor(scale_factor);
-            }
+            // if let Some(scale_factor) = input.scale_factor() {
+            // framework.scale_factor(scale_factor);
+            // }
 
             // Resize the window
             if let Some(size) = input.window_resized() {
                 pixels.resize_surface(size.width, size.height);
-                framework.resize(size.width, size.height);
+                // framework.resize(size.width, size.height);
+                window.request_redraw();
             }
-
-            window.request_redraw();
         }
     });
 }
 
 #[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-pub fn start() {
-    console_log::init().ok();
+pub mod wasm {
+    use wasm_bindgen::prelude::*;
 
-    wasm_bindgen_futures::spawn_local(run());
+    use futures::executor;
+    use futures::task::LocalSpawnExt;
+
+    use crate::GameBoy;
+
+    #[wasm_bindgen]
+    pub fn start() {
+        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+        console_log::init().ok();
+
+        let mut pool = executor::LocalPool::new();
+        let spawner = pool.spawner();
+
+        let mut gameboy = GameBoy::new();
+
+        spawner.spawn_local(crate::run(gameboy)).ok();
+        pool.run();
+    }
 }
