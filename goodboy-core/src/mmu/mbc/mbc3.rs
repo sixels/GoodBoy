@@ -40,6 +40,7 @@ impl Rtc {
         latched
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn update(&mut self) {
         let tstart = std::time::UNIX_EPOCH + std::time::Duration::from_secs(self.start);
 
@@ -65,6 +66,7 @@ impl Rtc {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn update_start(&mut self) {
         let tstart = {
             let dt = std::time::SystemTime::now()
@@ -84,6 +86,11 @@ impl Rtc {
 
         self.start = tstart;
     }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn update(&mut self) {}
+    #[cfg(target_arch = "wasm32")]
+    pub fn update_start(&mut self) {}
 }
 
 pub struct Mbc3 {
