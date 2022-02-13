@@ -6,31 +6,40 @@ edition = "2021"
 [workspace]
 members = ["goodboy-core"]
 
-[profile.release]
-incremental = true
-# opt-level = 2
+[features]
+web = ["wgpu/webgl", "instant/wasm-bindgen"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[profile.release]
+incremental = true
+# opt-level = 2
+
 [dependencies]
 goodboy_core = { path = "./goodboy-core" }
-rfd = "0.7.0"
+
 env_logger = "0.9.0"
-egui = "0.16.1"
+log = "0.4.14"
+instant = "0.1.12"
+
 winit = "0.26.1"
 winit_input_helper = "0.11.0"
-egui_wgpu_backend = "0.16.0"
-egui-winit = "0.16.0"
+# egui = "0.16.1"
+# egui_wgpu_backend = "0.16.0"
+# egui-winit = "0.16.0"
 pixels = "0.9.0"
 wgpu = "0.12.0"
-log = "0.4.14"
+
+rfd = { version = "0.7.0", default-features = false }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 pollster = "0.2.5"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+console_error_panic_hook = "0.1"
 wasm-bindgen = "0.2.79"
-web-sys = { version = "0.3.56", features = ["WebGl2RenderingContext"] }
+web-sys = "0.3.56"
 wasm-bindgen-futures = "0.4.29"
 console_log = "0.2.0"
+futures = { version = "0.3.21", features = ["executor"] }
