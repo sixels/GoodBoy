@@ -41,11 +41,13 @@ export RUSTFLAGS=--cfg=web_sys_unstable_apis
 
 # Clear output from old stuff:
 OUT_DIR=docs
-rm -rf ${OUT_DIR}/
+rm -rf ${OUT_DIR}/pkg
+mkdir -p ${OUT_DIR}/pkg
+
 
 echo "Building rust…"
 BUILD=release
-cargo build -p ${CRATE_NAME} --${BUILD} --lib --target wasm32-unknown-unknown
+cargo build -p ${CRATE_NAME} --${BUILD} --target wasm32-unknown-unknown --lib --features web
 
 
 # Get the output directory (in the workspace it is in another location)
@@ -54,15 +56,15 @@ TARGET=`cargo metadata --format-version=1 | jq --raw-output .target_directory`
 echo "Generating JS bindings for wasm…"
 TARGET_NAME="${CRATE_NAME_SNAKE_CASE}.wasm"
 wasm-bindgen "${TARGET}/wasm32-unknown-unknown/${BUILD}/${TARGET_NAME}" \
-  --out-dir ${OUT_DIR} --target web --no-typescript
+  --out-dir ${OUT_DIR}/pkg --target no-modules --no-typescript
 
 if [ "${FAST}" = false ]; then
   echo "Optimizing wasm…"
   # to get wasm-opt:  apt/brew/dnf install binaryen
-  wasm-opt ${OUT_DIR}/${CRATE_NAME}_bg.wasm -O2 --fast-math -o ${OUT_DIR}/${CRATE_NAME}_bg.wasm # add -g to get debug symbols
+  wasm-opt ${OUT_DIR}/pkg/${CRATE_NAME}_bg.wasm -O2 --fast-math -o ${OUT_DIR}/${CRATE_NAME}_bg.wasm # add -g to get debug symbols
 fi
 
-cp assets/templates/* ${OUT_DIR}
+# cp assets/templates/* ${OUT_DIR}
 
 echo "Finished: ${OUT_DIR}/${CRATE_NAME_SNAKE_CASE}.wasm"
 

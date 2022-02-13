@@ -40,7 +40,7 @@ canvas {
   height: 100% !important;
 } */
 
-.gameboy {
+/* .gameboy {
   position: relative;
 
   height: 100vh;
@@ -51,9 +51,9 @@ canvas {
   display: grid;
   place-items: center;
   grid-template-columns: 1fr 1fr 1fr;
-}
+} */
 
-.gameboy::before {
+/* .gameboy::before {
   content: "";
 
   width: 100%;
@@ -64,8 +64,8 @@ canvas {
   left: 0;
 
   background-color: #b9b9b9;
-}
-.gameboy::after {
+} */
+/* .gameboy::after {
   content: "";
 
   width: 90%;
@@ -79,30 +79,30 @@ canvas {
   border: 5px solid #b9b9b9;
   border-top: 0;
   border-bottom: 0;
-}
+} */
 
-.screen_container {
+/* .screen_container {
   width: min(60vh, 60vw);
   height: min(60vh, 60vw);
-}
+} */
 
-#screen {
+/* #screen {
   width: 100%;
   height: 100%;
-  background-color: #000;
+  background-color: #000; */
   /* border: 2px solid #54631b; */
-}
+/* }
 
 .left_container {
   width: 100%;
-  height: 100%;
+  height: 100%; */
 
   /* background-color: red; */
 
-  display: grid;
+  /* display: grid;
   place-items: center;
-}
-
+} */
+/* 
 .directions {
   position: relative;
 
@@ -171,10 +171,10 @@ canvas {
 
 .right_container {
   width: 100%;
-  height: 100%;
+  height: 100%; */
 
   /* background-color: blue; */
-
+/* 
   display: grid;
   place-items: center;
 }
@@ -271,4 +271,4 @@ canvas {
     height: 60px;
     margin: 10px;
   }
-}
+} */

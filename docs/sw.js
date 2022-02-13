@@ -2,8 +2,8 @@ var cacheName = 'goodboy-pwa';
 var filesToCache = [
     './',
     './index.html',
-    './goodboy.js',
-    './goodboy_bg.wasm',
+    './pkg/goodboy.js',
+    './pkg/goodboy_bg.wasm',
 ];
 
 /* Start the service worker and cache all of the app's content */
