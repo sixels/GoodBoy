@@ -174,10 +174,9 @@ pub async fn run(mut gameboy: GameBoy) {
 
 #[cfg(target_arch = "wasm32")]
 pub mod wasm {
+    use futures_executor as executor;
+    use futures_util::task::LocalSpawnExt;
     use wasm_bindgen::prelude::*;
-
-    use futures::executor;
-    use futures::task::LocalSpawnExt;
 
     use crate::GameBoy;
 
@@ -189,9 +188,7 @@ pub mod wasm {
         let mut pool = executor::LocalPool::new();
         let spawner = pool.spawner();
 
-        let mut gameboy = GameBoy::new();
-
-        spawner.spawn_local(crate::run(gameboy)).ok();
+        spawner.spawn_local(crate::run(GameBoy::new())).ok();
         pool.run();
     }
 }

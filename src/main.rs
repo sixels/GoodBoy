@@ -18,5 +18,5 @@ pub fn main() {
         }
     }
 
-    pollster::block_on(run(GameBoy::new()))
+    pollster::block_on(run(gameboy))
 }
