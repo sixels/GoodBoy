@@ -1,12 +1,13 @@
 #![allow(dead_code)]
 
 use std::future::Future;
+use std::time::Duration;
 
-use instant::{Duration, Instant};
+use wasm_timer::Instant;
 
 pub struct Fps {
     fps: usize,
-    last_fps: usize,
+    current_rate: usize,
 
     start: Instant,
 }
@@ -15,18 +16,18 @@ impl Fps {
     pub fn update(&mut self) -> usize {
         let now = Instant::now();
         if now > self.start + Duration::from_secs(1) {
-            self.last_fps = self.fps;
+            self.current_rate = self.fps;
             self.fps = 0;
 
             self.start = now;
         }
 
         self.fps += 1;
-        self.last_fps
+        self.current_rate
     }
 
     pub fn current_rate(&self) -> usize {
-        self.last_fps
+        self.current_rate
     }
 }
 
@@ -34,7 +35,7 @@ impl Default for Fps {
     fn default() -> Self {
         Self {
             fps: Default::default(),
-            last_fps: Default::default(),
+            current_rate: Default::default(),
             start: Instant::now(),
         }
     }
@@ -46,5 +47,5 @@ pub fn spawn<F: Future<Output = ()> + 'static>(f: F) {
 }
 #[cfg(not(target_arch = "wasm32"))]
 pub fn spawn<F: Future<Output = ()> + Send + 'static>(f: F) {
-    std::thread::spawn(|| pollster::block_on(f));
+    std::thread::spawn(move || pollster::block_on(f));
 }
