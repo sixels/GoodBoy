@@ -8,17 +8,18 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
-use winit_input_helper::WinitInputHelper;
 
-// mod framework;
 pub mod gameboy;
 mod io;
 mod utils;
 
-pub use gameboy::GameBoy;
+pub use crate::gameboy::GameBoy;
+use crate::io::IoHandler;
+use crate::utils::Fps;
+
 // use framework::Framework;
 
-pub async fn run(mut gameboy: GameBoy) {
+pub async fn run(gameboy: GameBoy) {
     let event_loop = EventLoop::new();
     let window = {
         let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
@@ -75,7 +76,6 @@ pub async fn run(mut gameboy: GameBoy) {
         closure.forget();
     }
 
-    let mut input = WinitInputHelper::new();
     let mut pixels = {
         let window_size = window.inner_size();
         // let scale_factor = window.scale_factor();
@@ -89,22 +89,95 @@ pub async fn run(mut gameboy: GameBoy) {
         pixels
     };
 
-    gameboy.prepare();
+    let (mut io_handler, io_rx) = IoHandler::new();
+
+    #[cfg(target_arch = "wasm32")]
+    let mut gameboy = gameboy;
+
+    let (screen_rx, game_title) = gameboy.setup(io_rx);
+    #[cfg(target_arch = "wasm32")]
+    let _game_title = game_title;
+
+    #[cfg(not(target_arch = "wasm32"))]
+    io_handler
+        .set_game_title(game_title.unwrap_or_default())
+        .unwrap();
+
+    let mut fps = Fps::default();
+
+    #[cfg(target_arch = "wasm32")]
+    let (mut clocks, (mut vm, screen_tx, io_rx)) = (0, gameboy.take());
+    #[cfg(target_arch = "wasm32")]
+    let mut frame_start = wasm_timer::Instant::now();
 
     event_loop.run(move |ev, _, control_flow| {
         #[cfg(target_arch = "wasm32")]
         {
-            let screen_sender = gameboy.screen_chan.0.clone();
-            let io_receiver = gameboy.io_chan.1.as_ref().unwrap();
+            use goodboy_core::vm::Vm;
+            use std::time::Duration;
+            use wasm_timer::Instant;
 
-            gameboy::update_vm(&mut gameboy.vm, screen_sender, io_receiver, 0, None).ok();
-        }
+            use crate::io::IoEvent;
 
-        let GameBoy {
-            io_chan: (io_tx, _),
-            screen_chan: (_, screen_rx),
-            ..
-        } = &gameboy;
+            let frame_now = Instant::now();
+            let frame_next = frame_start + Duration::from_micros(2000);
+
+            if frame_now >= frame_next {
+                let total_clocks = (4194304.0 / 1000.0 * 16f64).round() as u32;
+
+                if let Some(vm) = vm.as_mut() {
+                    while clocks < total_clocks {
+                        clocks += vm.tick();
+
+                        if vm.check_vblank() {
+                            if let Err(mpsc::TrySendError::Disconnected(..)) =
+                                screen_tx.try_send(vm.get_screen())
+                            {
+                                *control_flow = ControlFlow::Exit;
+                                return;
+                            }
+                        }
+                    }
+                    clocks -= total_clocks;
+                }
+
+                loop {
+                    match io_rx.try_recv() {
+                        Ok(event) => match event {
+                            IoEvent::ButtonPressed(button) => {
+                                vm.as_mut().map(|vm| vm.press_button(button));
+                            }
+                            IoEvent::ButtonReleased(button) => {
+                                vm.as_mut().map(|vm| vm.release_button(button));
+                            }
+                            IoEvent::InsertCartridge(cart) => {
+                                let _ = vm.insert(Vm::from_cartridge(cart));
+                                break;
+                            }
+                            // IoEvent::SetColorScheme(color_scheme) => vm.set_color_scheme(color_scheme),
+                            // IoEvent::SwitchSpeedNext => {
+                            //     time_cycle.nth(0);
+                            // }
+                            // IoEvent::SwitchSpeedPrev => {
+                            //     time_cycle.nth(2);
+                            // }
+                            IoEvent::Exit => {
+                                *control_flow = ControlFlow::Exit;
+                                return;
+                            }
+                            _ => {}
+                        },
+                        Err(mpsc::TryRecvError::Empty) => break,
+                        Err(_) => {
+                            *control_flow = ControlFlow::Exit;
+                            return;
+                        }
+                    }
+                }
+
+                frame_start = Instant::now();
+            }
+        } // cfg wasm32
 
         match &ev {
             Event::WindowEvent {
@@ -115,14 +188,21 @@ pub async fn run(mut gameboy: GameBoy) {
                 *control_flow = ControlFlow::Exit;
                 return;
             }
-            // Event::WindowEvent { event, .. } => {
-            //     framework.handle_event(&event);
-            // }
             Event::RedrawRequested(..) => {
                 let frame = pixels.get_frame();
+                fps.update();
 
                 match screen_rx.try_recv() {
-                    Ok(screen) => frame.copy_from_slice(screen.as_slice()),
+                    Ok(screen) => {
+                        frame.copy_from_slice(screen.as_slice());
+
+                        let title = io_handler.get_game_title().unwrap().clone();
+                        if title.len() > 0 {
+                            window.set_title(&format!("{} - {} FPS", title, fps.current_rate()));
+                        } else {
+                            window.set_title(&format!("GoodBoy"));
+                        }
+                    }
                     Err(mpsc::TryRecvError::Disconnected) => {
                         log::warn!("Screen channel was dropped");
                         *control_flow = ControlFlow::Exit;
@@ -131,17 +211,6 @@ pub async fn run(mut gameboy: GameBoy) {
                     _ => {}
                 }
 
-                // framework.prepare(&window);
-
-                // if let Err(_) = pixels.render_with(|encoder, render_target, context| {
-                //     // Render game frame
-                //     context.scaling_renderer.render(encoder, render_target);
-
-                //     // Render egui
-                //     // framework.render(encoder, render_target, context)?;
-
-                //     Ok(())
-                // })
                 if let Err(e) = pixels.render() {
                     log::error!("Pixel render failed: {:?}", e);
                     *control_flow = ControlFlow::Exit;
@@ -154,20 +223,15 @@ pub async fn run(mut gameboy: GameBoy) {
             _ => {}
         };
 
-        if input.update(&ev) {
-            io::handle_input(input.clone(), io_tx.clone());
-
-            // Update the scale factor
-            // if let Some(scale_factor) = input.scale_factor() {
-            // framework.scale_factor(scale_factor);
-            // }
+        if io_handler.update(&ev) {
+            io_handler.handle_input();
 
             // Resize the window
-            if let Some(size) = input.window_resized() {
+            if let Some(size) = io_handler.window_resized() {
                 pixels.resize_surface(size.width, size.height);
-                // framework.resize(size.width, size.height);
-                window.request_redraw();
             }
+
+            window.request_redraw();
         }
     });
 }
