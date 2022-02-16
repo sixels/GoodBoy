@@ -13,12 +13,13 @@ pub const RAM_SIZE_ADDR: usize = 0x149;
 
 pub struct Cartridge {
     title: String,
+    pub gb_mode: GbMode,
     mbc: Box<dyn mbc::Mbc + 'static>,
     ram_size: usize,
 }
 
 impl Cartridge {
-    pub fn new(rom: &[u8]) -> (Cartridge, GbMode) {
+    pub fn new(rom: &[u8]) -> Cartridge {
         fn ram_size(v: u8) -> usize {
             match v {
                 1 => 0x800,
@@ -59,14 +60,12 @@ impl Cartridge {
             _ => panic!("Unsupported cartridge MBC"),
         };
 
-        (
-            Cartridge {
-                mbc,
-                title,
-                ram_size,
-            },
-            mode,
-        )
+        Cartridge {
+            title,
+            gb_mode: mode,
+            mbc,
+            ram_size,
+        }
     }
 
     pub fn rom_name(&self) -> &str {
