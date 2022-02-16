@@ -1,30 +1,40 @@
-use std::{fs, io, path::Path};
-
-use crate::{cpu::Cpu, io::JoypadButton, mmu::Bus, ppu::ColorScheme};
+use crate::{
+    cpu::Cpu,
+    io::JoypadButton,
+    mmu::{cartridge::Cartridge, Bus},
+    ppu::ColorScheme,
+};
 
 pub const SCREEN_WIDTH: usize = 160;
 pub const SCREEN_HEIGHT: usize = 144;
 
 pub type Screen = Box<[u8; SCREEN_WIDTH * SCREEN_HEIGHT * 4]>;
 
-pub struct VM {
+pub struct Vm {
     cpu: Cpu,
 }
 
-impl VM {
-    pub fn new<P: AsRef<Path>>(rom_path: P) -> io::Result<Self> {
-        log::info!("Creating a new VM from path: {:?}", rom_path.as_ref());
+impl Vm {
+    // pub fn new<P: AsRef<Path>>(rom_path: P) -> io::Result<Self> {
+    //     log::info!("Creating a new VM from path: {:?}", rom_path.as_ref());
 
-        let rom_buffer = fs::read(rom_path)?;
-        let bus = Bus::new(&rom_buffer);
+    //     let rom_buffer = fs::read(rom_path)?;
+    //     let bus = Bus::new(&rom_buffer);
 
-        Ok(Self { cpu: Cpu::new(bus) })
-    }
+    //     Ok(Self { cpu: Cpu::new(bus) })
+    // }
 
-    pub fn new_from_buffer(rom_buffer: &[u8]) -> Self {
+    pub fn new(rom_buffer: &[u8]) -> Self {
         log::info!("Creating a new VM from file buffer");
 
         let bus = Bus::new(rom_buffer);
+        Self { cpu: Cpu::new(bus) }
+    }
+
+    pub fn from_cartridge(cartridge: Cartridge) -> Self {
+        log::info!("Creating a new VM from cartridge");
+
+        let bus = Bus::from_cartridge(cartridge);
         Self { cpu: Cpu::new(bus) }
     }
 
@@ -36,6 +46,11 @@ impl VM {
         let vblanked = self.cpu.bus.gpu.vblanked;
         self.cpu.bus.gpu.vblanked = false;
         vblanked
+    }
+
+    pub fn game_title<'a>(&'a self) -> &'a str {
+        let cartridge = &self.cpu.bus.cartridge;
+        cartridge.rom_name()
     }
 
     pub fn get_screen(&self) -> Screen {

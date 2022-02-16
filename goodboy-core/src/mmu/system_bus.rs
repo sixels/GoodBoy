@@ -29,7 +29,7 @@ pub struct Bus {
     // sram: Box<[u8; 0x2000]>,
 
     // Cartridge
-    cartridge: Cartridge,
+    pub cartridge: Cartridge,
 
     /// Work RAM \
     /// 0xC000 ..= 0xCFFF -> WRAM0 \
@@ -80,15 +80,22 @@ pub struct Bus {
 
 impl Bus {
     pub fn new(rom: &[u8]) -> Bus {
-        let wram = iter::repeat(0).take(WRAM_SIZE).collect();
+        let cartridge = Cartridge::new(rom);
 
-        let (cartridge, gb_mode) = Cartridge::new(rom);
+        Self::from_cartridge(cartridge)
+    }
+
+    pub fn from_cartridge(cartridge: Cartridge) -> Bus {
+        let gb_mode = cartridge.gb_mode;
+
+        let wram = iter::repeat(0).take(WRAM_SIZE).collect();
+        let zram = [0; ZRAM_SIZE];
 
         let mut bus = Bus {
             gb_mode,
 
             wram,
-            zram: [0; ZRAM_SIZE],
+            zram,
 
             cartridge,
             gpu: Gpu::new(gb_mode),
