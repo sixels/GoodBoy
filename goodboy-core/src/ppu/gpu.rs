@@ -425,7 +425,7 @@ impl MemoryAccess for Gpu {
     fn mem_read(&self, addr: u16) -> u8 {
         match addr {
             0x8000..=0x9FFF => self.vram[(self.vram_bank * 0x2000) | (addr & 0x1FFF) as usize],
-            0xFE00..=0xFE9F => self.oam[(addr & 0x01FF) as usize],
+            0xFE00..=0xFE9F => self.oam[(addr - 0xFE00) as usize],
 
             0xFF40 => self.lcd_control.bits(),
             0xFF41 => {
@@ -490,9 +490,8 @@ impl MemoryAccess for Gpu {
                 self.vram[(self.vram_bank * 0x2000) | (addr & 0x1FFF) as usize] = value
             }
             0xFE00..=0xFE9F => {
-                let addr = addr as usize & 0x01FF;
+                let addr = (addr - 0xFE00) as usize;
                 self.oam[addr] = value;
-
                 sprites::update_sprites(&mut self.sprites, addr, value);
             }
 

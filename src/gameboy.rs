@@ -1,75 +1,28 @@
-use std::sync::mpsc;
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::Path;
+use std::sync::mpsc::{self, Receiver, SyncSender};
 
 use goodboy_core::vm::{Screen, Vm};
 
 #[cfg(not(target_arch = "wasm32"))]
-mod vm;
-
-#[cfg(not(target_arch = "wasm32"))]
-use crate::gameboy::vm::vm_loop;
 use crate::io::IoEvent;
-#[cfg(not(target_arch = "wasm32"))]
-use std::path::Path;
 
 pub struct GameBoy {
-    vm: Option<Vm>,
-    #[cfg(target_arch = "wasm32")]
-    screen_tx: Option<mpsc::SyncSender<Screen>>,
-    #[cfg(target_arch = "wasm32")]
-    io_rx: Option<mpsc::Receiver<IoEvent>>,
+    pub vm: Option<Vm>,
+    pub screen_tx: SyncSender<Screen>,
+    pub screen_rx: Option<Receiver<Screen>>,
 }
 
 impl GameBoy {
     pub fn new() -> Self {
+        let (screen_tx, screen_rx) = mpsc::sync_channel(1);
+
         GameBoy {
             vm: None,
-            #[cfg(target_arch = "wasm32")]
-            screen_tx: None,
-            #[cfg(target_arch = "wasm32")]
-            io_rx: None,
+            screen_tx,
+            screen_rx: Some(screen_rx),
         }
     }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn setup(
-        mut self,
-        io_rx: mpsc::Receiver<IoEvent>,
-    ) -> (mpsc::Receiver<Screen>, Option<String>) {
-        let game_title = self.game_title();
-
-        let vm = self.vm.take();
-        let (screen_tx, screen_rx) = mpsc::sync_channel(1);
-
-        crate::utils::spawn(vm_loop(vm, screen_tx, io_rx));
-
-        (screen_rx, game_title)
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    pub fn setup(&mut self, io_rx: mpsc::Receiver<IoEvent>) -> (mpsc::Receiver<Screen>, String) {
-        let (screen_tx, screen_rx) = mpsc::sync_channel(1);
-
-        self.screen_tx = Some(screen_tx);
-        self.io_rx = Some(io_rx);
-
-        (screen_rx, String::new())
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    pub fn take(
-        mut self,
-    ) -> (
-        Option<Vm>,
-        mpsc::SyncSender<Screen>,
-        mpsc::Receiver<IoEvent>,
-    ) {
-        (
-            self.vm,
-            self.screen_tx.take().unwrap(),
-            self.io_rx.take().unwrap(),
-        )
-    }
-
     pub fn game_title(&self) -> Option<String> {
         self.vm
             .as_ref()
@@ -87,5 +40,77 @@ impl GameBoy {
         let game_data = std::fs::read(path)?;
         self.load_game(&game_data);
         Ok(())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn run(mut self, io_rx: Receiver<IoEvent>) -> Receiver<Screen> {
+        let screen_rx = self.screen_rx.take().unwrap();
+        crate::utils::spawn(self.run_loop(io_rx));
+        screen_rx
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    async fn run_loop(mut self, io_rx: Receiver<IoEvent>) {
+        use std::time::Duration;
+
+        let mut clocks = 0;
+
+        let sleep_time = vec![16, 8, 4, 0];
+        let mut time_cycle = sleep_time
+            .into_iter()
+            .map(Duration::from_millis)
+            .cycle()
+            .peekable();
+
+        'vm: loop {
+            let timer = wasm_timer::Delay::new(*time_cycle.peek().unwrap());
+            let total_clocks = (4194304.0 / 1000.0 * 16f64).round() as u32;
+
+            if let Some(vm) = self.vm.as_mut() {
+                while clocks < total_clocks {
+                    clocks += vm.tick();
+
+                    if vm.check_vblank() {
+                        if let Err(mpsc::TrySendError::Disconnected(..)) =
+                            self.screen_tx.try_send(vm.get_screen())
+                        {
+                            break 'vm;
+                        }
+                    }
+                }
+                clocks -= total_clocks;
+            }
+
+            loop {
+                match io_rx.try_recv() {
+                    Ok(event) => match event {
+                        IoEvent::ButtonPressed(button) => {
+                            self.vm.as_mut().map(|vm| vm.press_button(button));
+                        }
+                        IoEvent::ButtonReleased(button) => {
+                            self.vm.as_mut().map(|vm| vm.release_button(button));
+                        }
+                        IoEvent::InsertCartridge(cart) => {
+                            let _ = self.vm.insert(Vm::from_cartridge(cart));
+                            clocks = 0;
+                            break;
+                        }
+                        // IoEvent::SetColorScheme(color_scheme) => vm.set_color_scheme(color_scheme),
+                        IoEvent::SwitchSpeedNext => {
+                            time_cycle.nth(0);
+                        }
+                        IoEvent::SwitchSpeedPrev => {
+                            time_cycle.nth(2);
+                        }
+                        IoEvent::Exit => break 'vm,
+                        // _ => {}
+                    },
+                    Err(mpsc::TryRecvError::Empty) => break,
+                    Err(_) => break 'vm,
+                }
+            }
+
+            timer.await.ok();
+        }
     }
 }

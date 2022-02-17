@@ -20,6 +20,9 @@ use crate::utils::Fps;
 // use framework::Framework;
 
 pub async fn run(gameboy: GameBoy) {
+    #[cfg(target_arch = "wasm32")]
+    let mut gameboy = gameboy;
+
     let event_loop = EventLoop::new();
     let window = {
         let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
@@ -91,12 +94,10 @@ pub async fn run(gameboy: GameBoy) {
 
     let (mut io_handler, io_rx) = IoHandler::new();
 
+    #[cfg(not(target_arch = "wasm32"))]
+    let (game_title, screen_rx) = (gameboy.game_title(), gameboy.run(io_rx));
     #[cfg(target_arch = "wasm32")]
-    let mut gameboy = gameboy;
-
-    let (screen_rx, game_title) = gameboy.setup(io_rx);
-    #[cfg(target_arch = "wasm32")]
-    let _game_title = game_title;
+    let screen_rx = gameboy.screen_rx.take().unwrap();
 
     #[cfg(not(target_arch = "wasm32"))]
     io_handler
@@ -106,7 +107,7 @@ pub async fn run(gameboy: GameBoy) {
     let mut fps = Fps::default();
 
     #[cfg(target_arch = "wasm32")]
-    let (mut clocks, (mut vm, screen_tx, io_rx)) = (0, gameboy.take());
+    let mut clocks = 0;
     #[cfg(target_arch = "wasm32")]
     let mut frame_start = wasm_timer::Instant::now();
 
@@ -120,18 +121,18 @@ pub async fn run(gameboy: GameBoy) {
             use crate::io::IoEvent;
 
             let frame_now = Instant::now();
-            let frame_next = frame_start + Duration::from_micros(2000);
+            let frame_next = frame_start + Duration::from_micros(1000);
 
             if frame_now >= frame_next {
                 let total_clocks = (4194304.0 / 1000.0 * 16f64).round() as u32;
 
-                if let Some(vm) = vm.as_mut() {
+                if let Some(vm) = gameboy.vm.as_mut() {
                     while clocks < total_clocks {
                         clocks += vm.tick();
 
                         if vm.check_vblank() {
                             if let Err(mpsc::TrySendError::Disconnected(..)) =
-                                screen_tx.try_send(vm.get_screen())
+                                gameboy.screen_tx.try_send(vm.get_screen())
                             {
                                 *control_flow = ControlFlow::Exit;
                                 return;
@@ -145,13 +146,13 @@ pub async fn run(gameboy: GameBoy) {
                     match io_rx.try_recv() {
                         Ok(event) => match event {
                             IoEvent::ButtonPressed(button) => {
-                                vm.as_mut().map(|vm| vm.press_button(button));
+                                gameboy.vm.as_mut().map(|vm| vm.press_button(button));
                             }
                             IoEvent::ButtonReleased(button) => {
-                                vm.as_mut().map(|vm| vm.release_button(button));
+                                gameboy.vm.as_mut().map(|vm| vm.release_button(button));
                             }
                             IoEvent::InsertCartridge(cart) => {
-                                let _ = vm.insert(Vm::from_cartridge(cart));
+                                let _ = gameboy.vm.insert(Vm::from_cartridge(cart));
                                 break;
                             }
                             // IoEvent::SetColorScheme(color_scheme) => vm.set_color_scheme(color_scheme),
