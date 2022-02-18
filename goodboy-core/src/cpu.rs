@@ -198,18 +198,20 @@ impl Cpu {
             }
 
             Instruction::LDFF8A => {
-                let immediate = self.fetch_byte();
-                self.mem_write(0xFF00 | (immediate as u16), self.regs.a);
-            }
-            Instruction::LDAFF8 => {
-                let immediate = self.fetch_byte();
-                self.regs.a = self.mem_read(0xFF00 | (immediate as u16));
+                let addr = 0xFF00 | self.fetch_byte() as u16;
+                self.mem_write(addr, self.regs.a);
             }
             Instruction::LDFFCA => {
-                self.mem_write(0xFF00 | (self.regs.c as u16), self.regs.a);
+                let addr = 0xFF00 | self.regs.c as u16;
+                self.mem_write(addr, self.regs.a);
+            }
+            Instruction::LDAFF8 => {
+                let addr = 0xFF00 | self.fetch_byte() as u16;
+                self.regs.a = self.mem_read(addr);
             }
             Instruction::LDAFFC => {
-                self.regs.a = self.mem_read(0xFF00 | (self.regs.c as u16));
+                let addr = 0xFF00 | self.regs.c as u16;
+                self.regs.a = self.mem_read(addr);
             }
 
             Instruction::LD16SP => {
@@ -461,11 +463,21 @@ impl Cpu {
                 self.set_operand_value(&target, value | (1 << b))
             }
 
+            Instruction::CB => {
+                unreachable!()
+            }
+
+            // Instruction::Unused => {
+            //     log::warn!(
+            //         "Forbidden opcode at 0x{:04X}: {opcode:X?}",
+            //         self.pc.saturating_sub(opcode.length as u16),
+            //     )
+            // }
+
             _ => {
                 return Err(format!(
-                    "Unimplemented opcode at 0x{:04X}: {:02x?}.",
-                    self.pc.saturating_sub(opcode.length as u16),
-                    opcode
+                    "Invalid opcode at 0x{:04X}: {opcode:X?}",
+                    self.pc.saturating_sub(opcode.length as u16)
                 ))
             }
         };
@@ -589,7 +601,7 @@ impl Cpu {
     fn branch_call(&mut self, condition: bool) -> u32 {
         if condition {
             self.push_stack(self.pc + 2);
-            self.branch_jp(true);
+            self.pc = self.fetch_word();
             24
         } else {
             // skip the next word

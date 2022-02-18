@@ -444,6 +444,8 @@ impl MemoryAccess for Gpu {
             0xFF44 => self.scan_line,
             0xFF45 => self.scan_line_check,
 
+            0xff46 => 0,
+
             0xFF47 => self.bg_palette,
             0xFF48 => self.object_palette[0],
             0xFF49 => self.object_palette[1],
@@ -498,6 +500,7 @@ impl MemoryAccess for Gpu {
             0xFF40 => {
                 let lcd_was_enable = self.lcd_control.lcd_on();
                 self.lcd_control = LCDControl::from_bits_truncate(value);
+
                 if lcd_was_enable && !self.lcd_control.lcd_on() {
                     self.mode = GpuMode::HBlank;
                     self.clocks = 0;

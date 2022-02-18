@@ -1,11 +1,5 @@
 use std::collections::HashMap;
 
-macro_rules! nop {
-    ($opcode:expr) => {
-        Opcode::new($opcode, 1, 4, Instruction::NOP, "NOP")
-    };
-}
-
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Operand {
     A,
@@ -36,6 +30,7 @@ pub enum Condition {
 
 #[derive(Debug, Clone, Copy)]
 pub enum Instruction {
+    Unused,
     ADC(Operand),
     ADD(Operand),
     ADDHL(Operand),
@@ -167,6 +162,12 @@ impl<'a> Ord for Opcode<'a> {
     }
 }
 
+macro_rules! unused_instruction {
+    ($opcode:expr) => {
+        Opcode::new($opcode, 1, 0, Instruction::Unused, "UNUSED")
+    };
+}
+
 lazy_static::lazy_static! {
     pub static ref OPCODE_MAP: HashMap<u8, &'static Opcode<'static>> = {
         let opcodes = OPCODE_VEC.iter()
@@ -182,18 +183,19 @@ lazy_static::lazy_static! {
     };
 
     static ref OPCODE_VEC: Vec<Opcode<'static>> = vec![
-        nop!(0x00),
+        Opcode::new(0x00, 1, 4, Instruction::NOP, "NOP"),
 
-        nop!(0xD3),
-        nop!(0xDD),
-        nop!(0xE3),
-        nop!(0xE4),
-        nop!(0xEB),
-        nop!(0xEC),
-        nop!(0xED),
-        nop!(0xF4),
-        nop!(0xFC),
-        nop!(0xFD),
+        unused_instruction!(0xD3),
+        unused_instruction!(0xDB),
+        unused_instruction!(0xDD),
+        unused_instruction!(0xE3),
+        unused_instruction!(0xE4),
+        unused_instruction!(0xEB),
+        unused_instruction!(0xEC),
+        unused_instruction!(0xED),
+        unused_instruction!(0xF4),
+        unused_instruction!(0xFC),
+        unused_instruction!(0xFD),
 
 
         Opcode::new(0x10, 1, 4, Instruction::STOP, "STOP"),
@@ -450,8 +452,8 @@ lazy_static::lazy_static! {
         Opcode::new(0xFE, 2, 8, Instruction::CP(Operand::IM8) , "CP A,u8"),
 
         Opcode::new(0xE0, 2, 12, Instruction::LDFF8A, "LD (FF00+u8),A"),
-        Opcode::new(0xF0, 2, 12, Instruction::LDAFF8, "LD A,(FF00+u8)"),
         Opcode::new(0xE2, 1, 8, Instruction::LDFFCA, "LD (FF00+C),A"),
+        Opcode::new(0xF0, 2, 12, Instruction::LDAFF8, "LD A,(FF00+u8)"),
         Opcode::new(0xF2, 1, 8, Instruction::LDAFFC, "LD A,(FF00+C)"),
 
         Opcode::new(0xEA, 3, 16, Instruction::LD16A, "LD (u16),A"),

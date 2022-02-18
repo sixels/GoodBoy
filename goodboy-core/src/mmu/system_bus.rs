@@ -256,23 +256,19 @@ impl MemoryAccess for Bus {
 
             0xC000..=0xCFFF | 0xE000..=0xEFFF => self.wram[(addr & 0x0FFF) as usize],
             0xD000..=0xDFFF | 0xF000..=0xFDFF => {
-                self.wram[((addr as usize) & 0x0FFF | (self.wram_bank * 0x1000))]
+                self.wram[(self.wram_bank * 0x1000) | (addr & 0x0FFF) as usize]
             }
 
             0xFE00..=0xFE9F => self.gpu.mem_read(addr),
 
-            0xFEA0..=0xFEFF => 0, // unused
-
             0xFF00 => self.joypad.read(),
-
-            0xFF0F => self.iflag,
-
             0xFF01..=0xFF02 => self.serial.mem_read(addr),
             0xFF04..=0xFF07 => self.timer.mem_read(addr),
 
-            0xFF46 => 0,
-            0xff40..=0xff4b | 0xff4f => self.gpu.mem_read(addr),
+            0xFF0F => self.iflag,
+
             0xff4d => ((self.speed & 0x02) << 6) | self.speed_switch as u8,
+            0xff40..=0xff4f => self.gpu.mem_read(addr),
             0xff51..=0xff55 => self.dma.mem_read(addr),
             0xff68..=0xff6b => self.gpu.mem_read(addr),
 
@@ -299,8 +295,6 @@ impl MemoryAccess for Bus {
             }
 
             0xFE00..=0xFE9F => self.gpu.mem_write(addr, value),
-
-            0xFEA0..=0xFEFF => (), // unused
 
             0xFF00 => self.joypad.write(value),
 

@@ -13,6 +13,7 @@ pub type Screen = Box<[u8; SCREEN_WIDTH * SCREEN_HEIGHT * 4]>;
 pub struct Vm {
     cpu: Cpu,
 }
+static mut ticks: usize = 0;
 
 impl Vm {
     // pub fn new<P: AsRef<Path>>(rom_path: P) -> io::Result<Self> {
@@ -39,7 +40,10 @@ impl Vm {
     }
 
     pub fn tick(&mut self) -> u32 {
-        self.cpu.run()
+        self.cpu.run_callback(move |_| {
+            unsafe { ticks += 1 };
+            log::debug!("CPU Ticked {} times", unsafe { ticks });
+        })
     }
 
     pub fn check_vblank(&mut self) -> bool {
