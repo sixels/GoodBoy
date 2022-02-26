@@ -3,3 +3,4 @@ assets/roms/*.gb
 .vscode/
 
 *.gbsave
+*.log
