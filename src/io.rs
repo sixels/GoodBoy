@@ -26,7 +26,7 @@ pub struct IoHandler {
     input: WinitInputHelper,
     io_tx: mpsc::Sender<IoEvent>,
     /// the current game's title
-    game_title: GameTitle,
+    pub game_title: GameTitle,
 }
 
 #[derive(Clone)]
@@ -70,6 +70,10 @@ impl IoHandler {
             },
             io_rx,
         )
+    }
+
+    pub fn sender(&self) -> mpsc::Sender<IoEvent> {
+        self.io_tx.clone()
     }
 
     pub fn handle_input(&self) {
