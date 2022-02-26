@@ -10,50 +10,25 @@ body {
   overflow: hidden;
 }
 
-body {
-  background: #909090;
-}
-
-@media (prefers-color-scheme: dark) {
-  body {
-    background: #404040;
-  }
-}
-
-canvas {
-  margin-right: auto;
-  margin-left: auto;
-  display: block;
-  position: absolute;
-  top: 0%;
-  left: 50%;
-  transform: translate(-50%, 0%);
-}
-
 * {
   box-sizing: border-box;
   font-family: sans-serif;
 }
 
-/* canvas {
-  width: 100% !important;
-  height: 100% !important;
-} */
-
-/* .gameboy {
+.gameboy {
   position: relative;
 
   height: 100vh;
   width: 100%;
 
-  background: #cdcdcd;
+  background: #d4cdc8;
 
   display: grid;
   place-items: center;
   grid-template-columns: 1fr 1fr 1fr;
-} */
+}
 
-/* .gameboy::before {
+.gameboy::before {
   content: "";
 
   width: 100%;
@@ -63,46 +38,66 @@ canvas {
   top: 40px;
   left: 0;
 
-  background-color: #b9b9b9;
-} */
-/* .gameboy::after {
+  border-top: 2px solid hsl(26, 21%, 95%);
+  border-bottom: 3px solid #85766b;
+  background-color: #dbd2cd;
+}
+.gameboy::after {
   content: "";
 
   width: 90%;
-  height: 40px;
+  height: 42px;
 
   position: absolute;
   top: 0;
   left: 50%;
   transform: translateX(-50%);
 
-  border: 5px solid #b9b9b9;
+  border: 10px solid #dbd2cd;
+  z-index: 100;
   border-top: 0;
   border-bottom: 0;
-} */
+}
 
-/* .screen_container {
-  width: min(60vh, 60vw);
-  height: min(60vh, 60vw);
-} */
+#screen-container {
+  width: calc(3 * 160px);
+  height: calc(3 * 144px);
+  margin-top: 20px;
 
-/* #screen {
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+#screen {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+canvas {
+  max-width: 100% !important;
+  max-height: 100% !important;
+
+
   width: 100%;
   height: 100%;
-  background-color: #000; */
-  /* border: 2px solid #54631b; */
-/* }
 
-.left_container {
+  position: relative !important;
+
+  /* background-color: #000; */
+  /* border: 2px solid #54631b; */
+}
+
+.left-container {
   width: 100%;
-  height: 100%; */
+  height: 100%;
 
   /* background-color: red; */
 
-  /* display: grid;
+  display: grid;
   place-items: center;
-} */
-/* 
+}
+
 .directions {
   position: relative;
 
@@ -113,7 +108,7 @@ canvas {
 }
 
 .directions * {
-  background-color: #10121f;
+  background-color: #232429;
   width: 55px;
   height: 55px;
   border-radius: 4px;
@@ -137,7 +132,7 @@ canvas {
   height: 42px;
   border-radius: 50%;
 
-  background-color: #242633;
+  background-color: #1D1E23;
 }
 
 .directions .left {
@@ -169,12 +164,12 @@ canvas {
   box-shadow: -1px 0px 5px #2b3672bb;
 }
 
-.right_container {
+.right-container {
   width: 100%;
-  height: 100%; */
+  height: 100%;
 
   /* background-color: blue; */
-/* 
+
   display: grid;
   place-items: center;
 }
@@ -205,13 +200,14 @@ canvas {
   outline: none;
 
   margin: 15px;
+
 }
-.actions * button:active {
+.actions * button.selected {
   transform: scale(0.98);
 }
 .actions .b::before {
   content: "B";
-  color: #111262;
+  color: #2C3264;
 
   font-weight: bold;
 
@@ -223,7 +219,7 @@ canvas {
 
 .actions .a::before {
   content: "A";
-  color: #111262;
+  color: #2C3264;
 
   font-weight: bold;
 
@@ -231,6 +227,61 @@ canvas {
   top: 105%;
   left: 50%;
   transform: translate(-50%, -50%);
+}
+
+.start-select {
+  position: absolute;
+  width: 140px;
+  height: 100px;
+  /* background-color: blue; */
+  bottom: -25%;
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.start-select .start,
+.start-select .select {
+  position: relative;
+}
+
+.start-select button {
+  border-radius: 50%;
+  width: 20px;
+  height: 50px;
+  border: none;
+  outline: none;
+  transform: rotate(65deg);
+  background-color: #7a7270;
+  box-shadow: 2px 2px 5px #2b3672bb;
+}
+.start-select * button.selected {
+  transform: scale(0.98) rotate(65deg);
+}
+
+.start-select .start::before {
+  content: "Start";
+  color: #2C3264;
+  font-size: 13px;
+
+  font-weight: bold;
+
+  position: absolute;
+  top: 75%;
+  left: 80%;
+  transform: translate(-50%, -50%) rotate(-28deg);
+}
+.start-select .select::before {
+  content: "Select";
+  color: #2C3264;
+  font-size: 13px;
+
+  font-weight: bold;
+
+  position: absolute;
+  top: 75%;
+  left: 80%;
+  transform: translate(-50%, -50%) rotate(-28deg);
 }
 
 @media (max-width: 720px) {
@@ -243,15 +294,18 @@ canvas {
 
     place-items: center;
   }
-  .screen_container {
+  #screen-container {
+    width: calc(2 * 160px);
+    height: calc(2 * 144px);
+
     grid-row: 1;
     grid-column: 1 / span 2;
   }
-  .left_container {
+  .left-container {
     grid-row: 2;
     grid-column: 1;
   }
-  .right_container {
+  .right-container {
     grid-row: 2;
     grid-column: 2;
   }
@@ -271,4 +325,7 @@ canvas {
     height: 60px;
     margin: 10px;
   }
-} */
+  .start-select {
+    bottom: -30%;
+  }
+}

@@ -1,9 +1,15 @@
 <head>
   <title>GoodBoy</title>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=0" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, user-scalable=0"
+  />
 
-  <meta name="description" content="GoodBoy is a Nintendo Game Boy emulator by sixels" />
+  <meta
+    name="description"
+    content="GoodBoy is a Nintendo Game Boy emulator by sixels"
+  />
   <link rel="icon" href="./favicon.png" type="image/png" />
   <link rel="manifest" href="./manifest.json" />
 
@@ -22,38 +28,55 @@
 </head>
 
 <body>
-  <!-- <div class="gameboy">
-    <div class="left_container">
+  <div
+    class="gameboy"
+    style="
+      -webkit-user-select: none;
+      -moz-user-select: -moz-none;
+      user-select: none;
+    "
+  >
+    <div class="left-container">
       <div class="directions">
         <div class="middle"></div>
-        <div class="left" id="btn_left"></div>
-        <div class="right" id="btn_right"></div>
-        <div class="up" id="btn_up"></div>
-        <div class="down" id="btn_down"></div>
+        <div class="left" id="btn-left"></div>
+        <div class="right" id="btn-right"></div>
+        <div class="up" id="btn-up"></div>
+        <div class="down" id="btn-down"></div>
       </div>
-    </div> -->
+    </div>
 
-  <!-- <div class="screen_container"> -->
-  <div id="screen">
-    <!-- <canvas id="goodboy"> </canvas> -->
-  </div>
-  <!-- </div> -->
+    <div id="screen-container">
+      <div id="screen">
+        <!-- <canvas id="goodboy"> </canvas> -->
+      </div>
+      <div class="start-select">
+        <div class="select">
+          <button id="btn-select"></button>
+        </div>
+        <div class="start">
+          <button id="btn-start"></button>
+        </div>
+      </div>
+    </div>
 
-  <!-- <div class="right_container">
+    <div class="right-container">
       <div class="actions">
         <div class="b"><button id="btn-b"></button></div>
         <div class="a"><button id="btn-a"></button></div>
       </div>
     </div>
-  </div> -->
+  </div>
 
   <script src="./pkg/goodboy.js"></script>
 
   <script>
-    const { start } = wasm_bindgen
+    const { start } = wasm_bindgen;
 
     window.addEventListener("load", () => {
-      wasm_bindgen("./pkg/goodboy_bg.wasm").then(on_wasm_loaded).catch(console.error);
+      wasm_bindgen("./pkg/goodboy_bg.wasm")
+        .then(on_wasm_loaded)
+        .catch(console.error);
     });
 
     function on_wasm_loaded() {
@@ -64,6 +87,4 @@
     }
   </script>
 </body>
-<html>
-
-</html>
+<html></html>
