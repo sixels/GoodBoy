@@ -13,18 +13,8 @@ pub type Screen = Box<[u8; SCREEN_WIDTH * SCREEN_HEIGHT * 4]>;
 pub struct Vm {
     cpu: Cpu,
 }
-static mut ticks: usize = 0;
 
 impl Vm {
-    // pub fn new<P: AsRef<Path>>(rom_path: P) -> io::Result<Self> {
-    //     log::info!("Creating a new VM from path: {:?}", rom_path.as_ref());
-
-    //     let rom_buffer = fs::read(rom_path)?;
-    //     let bus = Bus::new(&rom_buffer);
-
-    //     Ok(Self { cpu: Cpu::new(bus) })
-    // }
-
     pub fn new(rom_buffer: &[u8]) -> Self {
         log::info!("Creating a new VM from file buffer");
 
@@ -40,10 +30,7 @@ impl Vm {
     }
 
     pub fn tick(&mut self) -> u32 {
-        self.cpu.run_callback(move |_| {
-            unsafe { ticks += 1 };
-            log::debug!("CPU Ticked {} times", unsafe { ticks });
-        })
+        self.cpu.run()
     }
 
     pub fn check_vblank(&mut self) -> bool {
