@@ -13,6 +13,9 @@ pub mod gameboy;
 mod io;
 mod utils;
 
+// #[cfg(target_arch = "wasm32")]
+mod web;
+
 pub use crate::gameboy::GameBoy;
 use crate::io::IoHandler;
 use crate::utils::Fps;
@@ -39,159 +42,7 @@ pub async fn run(gameboy: GameBoy) {
     let (mut io_handler, io_rx) = IoHandler::new();
 
     #[cfg(target_arch = "wasm32")]
-    {
-        use wasm_bindgen::JsCast;
-        use winit::platform::web::WindowExtWebSys;
-
-        // Retrieve current width and height dimensions of browser client window
-        let get_window_size = move || {
-            let document = web_sys::window().and_then(|win| win.document()).unwrap();
-            let screen = document.get_element_by_id("screen-container").unwrap();
-            LogicalSize::new(screen.client_width() as f64, screen.client_height() as f64)
-        };
-
-        let window = Rc::clone(&window);
-        // Initialize winit window with current dimensions of browser client
-        window.set_inner_size(get_window_size());
-
-        let client_window = web_sys::window().unwrap();
-
-        // Attach winit canvas to body element
-        let document = client_window.document().unwrap();
-        document
-            .get_element_by_id("screen")
-            .and_then(|scr| {
-                scr.append_child(&web_sys::Element::from(window.canvas()))
-                    .ok()
-            })
-            .expect("couldn't append canvas to document body");
-
-        // Listen for resize event on browser client. Adjust winit window dimensions
-        // on event trigger
-        {
-            let window = Rc::clone(&window);
-            let closure =
-                wasm_bindgen::closure::Closure::wrap(Box::new(move |_e: web_sys::Event| {
-                    let size = get_window_size();
-                    window.set_inner_size(size)
-                }) as Box<dyn FnMut(_)>);
-            client_window
-                .add_event_listener_with_callback("resize", closure.as_ref().unchecked_ref())
-                .unwrap();
-            closure.forget();
-        }
-        {
-            use goodboy_core::io::JoypadButton;
-
-            let press_button = |btn: JoypadButton| {
-                let sender = io_handler.sender();
-                return wasm_bindgen::closure::Closure::wrap(Box::new(move |ev: web_sys::Event| {
-                    sender.send(IoEvent::ButtonPressed(btn)).ok();
-                })
-                    as Box<dyn FnMut(_)>);
-            };
-
-            let release_button = |btn: JoypadButton| {
-                let sender = io_handler.sender();
-                return wasm_bindgen::closure::Closure::wrap(Box::new(move |_: web_sys::Event| {
-                    sender.send(IoEvent::ButtonReleased(btn)).ok();
-                })
-                    as Box<dyn FnMut(_)>);
-            };
-
-            macro_rules! bind_button {
-                ($id:expr, $button:expr) => {{
-                    let btn = document
-                        .get_element_by_id($id)
-                        .expect(&format!("Couldn't find #{:?}", $id));
-                    let btn_press = press_button($button);
-                    let btn_release = release_button($button);
-                    btn.add_event_listener_with_callback(
-                        "mousedown",
-                        btn_press.as_ref().unchecked_ref(),
-                    )
-                    .unwrap();
-                    btn.add_event_listener_with_callback(
-                        "touchstart",
-                        btn_press.as_ref().unchecked_ref(),
-                    )
-                    .unwrap();
-                    btn.add_event_listener_with_callback(
-                        "mouseup",
-                        btn_release.as_ref().unchecked_ref(),
-                    )
-                    .unwrap();
-                    btn.add_event_listener_with_callback(
-                        "mouseout",
-                        btn_release.as_ref().unchecked_ref(),
-                    )
-                    .unwrap();
-                    btn.add_event_listener_with_callback(
-                        "touchend",
-                        btn_release.as_ref().unchecked_ref(),
-                    )
-                    .unwrap();
-                    btn.add_event_listener_with_callback(
-                        "touchcancel",
-                        btn_release.as_ref().unchecked_ref(),
-                    )
-                    .unwrap();
-
-                    btn_press.forget();
-                    btn_release.forget();
-                }};
-            }
-
-            {
-                use goodboy_core::mmu::cartridge::Cartridge;
-
-                let sender = io_handler.sender();
-                let game_title = io_handler.game_title.clone();
-
-                let cb = wasm_bindgen::closure::Closure::wrap(Box::new(move |_: web_sys::Event| {
-                    let dialog = rfd::AsyncFileDialog::new()
-                        .add_filter("ROM", &["gb", "gbc"])
-                        .pick_file();
-
-                    utils::spawn({
-                        let sender = sender.clone();
-                        let game_title = game_title.clone();
-
-                        async move {
-                            let file = dialog.await;
-
-                            if let Some(file) = file {
-                                log::info!("Loading file: {file:?}");
-                                let buffer = file.read().await;
-
-                                let cartridge = Cartridge::new(&buffer);
-
-                                let _ = game_title.set_title(cartridge.rom_name());
-
-                                if sender.send(IoEvent::InsertCartridge(cartridge)).is_err() {
-                                    log::error!("Error sending the file buffer");
-                                }
-                            } else {
-                                log::info!("No file selected");
-                            }
-                        }
-                    });
-                })
-                    as Box<dyn FnMut(_)>);
-
-                let btn = document.get_element_by_id("btn-start").unwrap();
-                btn.add_event_listener_with_callback("mousedown", cb.as_ref().unchecked_ref())
-                    .unwrap();
-                cb.forget();
-            }
-            bind_button!("btn-a", JoypadButton::A);
-            bind_button!("btn-b", JoypadButton::B);
-            bind_button!("btn-up", JoypadButton::Up);
-            bind_button!("btn-down", JoypadButton::Down);
-            bind_button!("btn-left", JoypadButton::Left);
-            bind_button!("btn-right", JoypadButton::Right);
-        }
-    }
+    web::start(Rc::clone(&window), &io_handler);
 
     let mut pixels = {
         let window_size = window.inner_size();

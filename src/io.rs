@@ -22,9 +22,10 @@ pub enum IoEvent {
     Exit,
 }
 
+#[derive(Clone)]
 pub struct IoHandler {
     input: WinitInputHelper,
-    io_tx: mpsc::Sender<IoEvent>,
+    pub sender: mpsc::Sender<IoEvent>,
     /// the current game's title
     pub game_title: GameTitle,
 }
@@ -65,50 +66,23 @@ impl IoHandler {
         (
             Self {
                 input,
-                io_tx,
+                sender: io_tx,
                 game_title: GameTitle::new(""),
             },
             io_rx,
         )
     }
 
-    pub fn sender(&self) -> mpsc::Sender<IoEvent> {
-        self.io_tx.clone()
-    }
-
     pub fn handle_input(&self) {
-        let input = self.input.clone();
-        let io_tx = self.io_tx.clone();
-        let game_title = self.game_title.clone();
+        let Self {
+            input,
+            sender: io_tx,
+            game_title,
+        } = self.clone();
 
         let send_keys = move || -> Result<(), mpsc::SendError<IoEvent>> {
             if input.key_pressed(VirtualKeyCode::Escape) {
-                let dialog = rfd::AsyncFileDialog::new()
-                    .add_filter("ROM", &["gb", "gbc"])
-                    .pick_file();
-
-                utils::spawn({
-                    let io_tx = io_tx.clone();
-
-                    async move {
-                        let file = dialog.await;
-
-                        if let Some(file) = file {
-                            log::info!("Loading file: {file:?}");
-                            let buffer = file.read().await;
-
-                            let cartridge = Cartridge::new(&buffer);
-
-                            let _ = game_title.set_title(cartridge.rom_name());
-
-                            if io_tx.send(IoEvent::InsertCartridge(cartridge)).is_err() {
-                                log::error!("Error sending the file buffer");
-                            }
-                        } else {
-                            log::info!("No file selected");
-                        }
-                    }
-                });
+                self::insert_cartridge(io_tx.clone(), game_title);
             }
             if input.key_pressed(VirtualKeyCode::Tab) {
                 io_tx.send(if !input.held_shift() {
@@ -183,6 +157,35 @@ impl IoHandler {
     pub fn get_game_title(&self) -> Result<String, PoisonError<RwLockReadGuard<String>>> {
         self.game_title.get_title()
     }
+}
+
+pub fn insert_cartridge(io_tx: mpsc::Sender<IoEvent>, game_title: GameTitle) {
+    let dialog = rfd::AsyncFileDialog::new()
+        .add_filter("ROM", &["gb", "gbc"])
+        .pick_file();
+
+    utils::spawn({
+        let io_tx = io_tx.clone();
+
+        async move {
+            let file = dialog.await;
+
+            if let Some(file) = file {
+                log::info!("Loading file: {file:?}");
+                let buffer = file.read().await;
+
+                let cartridge = Cartridge::new(&buffer);
+
+                let _ = game_title.set_title(cartridge.rom_name());
+
+                if io_tx.send(IoEvent::InsertCartridge(cartridge)).is_err() {
+                    log::error!("Error sending the file buffer");
+                }
+            } else {
+                log::info!("No file selected");
+            }
+        }
+    });
 }
 
 impl Deref for IoHandler {
