@@ -32,7 +32,7 @@ winit_input_helper = "0.11.0"
 pixels = "0.9.0"
 wgpu = "0.12.0"
 
-rfd = { version = "0.7.0", default-features = false }
+rfd = { version = "0.8.1", default-features = false, features = ["xdg-portal"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 pollster = "0.2.5"
