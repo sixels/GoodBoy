@@ -2,7 +2,7 @@
 
 use std::{
     ops::{Deref, DerefMut},
-    sync::{mpsc, Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::mpsc,
 };
 
 use goodboy_core::{io::JoypadButton, mmu::cartridge::Cartridge};
@@ -26,36 +26,6 @@ pub enum IoEvent {
 pub struct IoHandler {
     input: WinitInputHelper,
     pub sender: mpsc::Sender<IoEvent>,
-    /// the current game's title
-    pub game_title: GameTitle,
-}
-
-#[derive(Clone)]
-pub struct GameTitle(Arc<RwLock<String>>);
-
-impl GameTitle {
-    pub fn new(title: impl Into<String>) -> Self {
-        Self(Arc::new(RwLock::new(title.into())))
-    }
-    pub fn set_title(
-        &self,
-        title: impl Into<String>,
-    ) -> Result<(), PoisonError<RwLockWriteGuard<String>>> {
-        self.write()
-            .map(|mut game_title| *game_title = title.into())
-    }
-
-    pub fn get_title(&self) -> Result<String, PoisonError<RwLockReadGuard<String>>> {
-        self.read().map(|title| title.clone())
-    }
-}
-
-impl Deref for GameTitle {
-    type Target = Arc<RwLock<String>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
 }
 
 impl IoHandler {
@@ -67,22 +37,20 @@ impl IoHandler {
             Self {
                 input,
                 sender: io_tx,
-                game_title: GameTitle::new(""),
             },
             io_rx,
         )
     }
 
-    pub fn handle_input(&self) {
+    pub fn handle_input(&self, title_sender: &mpsc::Sender<String>) {
         let Self {
             input,
             sender: io_tx,
-            game_title,
         } = self.clone();
 
         let send_keys = move || -> Result<(), mpsc::SendError<IoEvent>> {
             if input.key_pressed(VirtualKeyCode::Escape) {
-                self::insert_cartridge(io_tx.clone(), game_title);
+                self::insert_cartridge(io_tx.clone(), title_sender.clone());
             }
             if input.key_pressed(VirtualKeyCode::Tab) {
                 io_tx.send(if !input.held_shift() {
@@ -146,26 +114,15 @@ impl IoHandler {
 
         send_keys().ok();
     }
-
-    pub fn set_game_title(
-        &self,
-        title: impl Into<String>,
-    ) -> Result<(), PoisonError<RwLockWriteGuard<String>>> {
-        self.game_title.set_title(title)
-    }
-
-    pub fn get_game_title(&self) -> Result<String, PoisonError<RwLockReadGuard<String>>> {
-        self.game_title.get_title()
-    }
 }
 
-pub fn insert_cartridge(io_tx: mpsc::Sender<IoEvent>, game_title: GameTitle) {
+pub fn insert_cartridge(io_ev_sender: mpsc::Sender<IoEvent>, title_sender: mpsc::Sender<String>) {
     let dialog = rfd::AsyncFileDialog::new()
         .add_filter("ROM", &["gb", "gbc"])
         .pick_file();
 
     utils::spawn({
-        let io_tx = io_tx.clone();
+        let io_tx = io_ev_sender.clone();
 
         async move {
             let file = dialog.await;
@@ -175,8 +132,7 @@ pub fn insert_cartridge(io_tx: mpsc::Sender<IoEvent>, game_title: GameTitle) {
                 let buffer = file.read().await;
 
                 let cartridge = Cartridge::new(&buffer);
-
-                let _ = game_title.set_title(cartridge.rom_name());
+                title_sender.send(cartridge.rom_name().to_string()).ok();
 
                 if io_tx.send(IoEvent::InsertCartridge(cartridge)).is_err() {
                     log::error!("Error sending the file buffer");

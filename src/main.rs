@@ -1,14 +1,13 @@
 #[cfg(not(target_arch = "wasm32"))]
 pub fn main() {
+    use goodboy::{App, GameBoy};
     use std::env;
-
-    use goodboy::{run, GameBoy};
 
     env_logger::init();
 
     let mut gameboy = GameBoy::new();
-    let args = env::args();
 
+    let args = env::args();
     if let Some(path) = args.skip(1).next() {
         match gameboy.load_game_file(&path) {
             Ok(()) => {}
@@ -18,5 +17,6 @@ pub fn main() {
         }
     }
 
-    pollster::block_on(run(gameboy))
+    let app = App::new(gameboy).unwrap();
+    pollster::block_on(app.run());
 }

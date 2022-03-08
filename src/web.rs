@@ -6,7 +6,7 @@ use winit::{dpi::LogicalSize, platform::web::WindowExtWebSys, window::Window};
 
 use crate::io::{insert_cartridge, IoEvent, IoHandler};
 
-pub fn start(window: Rc<Window>, ev_handler: &IoHandler) {
+pub fn init(window: Rc<Window>, ev_handler: &IoHandler, title_sender: &mpsc::Sender<String>) {
     // Initialize winit window with current dimensions of browser client
     window.set_inner_size(self::get_canvas_size());
 
@@ -24,13 +24,12 @@ pub fn start(window: Rc<Window>, ev_handler: &IoHandler) {
         })
         .expect("Could not create the canvas");
 
-    let cb = wasm_bindgen::closure::Closure::wrap(Box::new({
+    let cb = Closure::wrap(Box::new({
         let sender = ev_handler.sender.clone();
-        let game_title = ev_handler.game_title.clone();
+        let title_sender = title_sender.clone();
         move |_: web_sys::Event| {
             let sender = sender.clone();
-            let game_title = game_title.clone();
-            insert_cartridge(sender, game_title);
+            insert_cartridge(sender, title_sender.clone());
         }
     }) as Box<dyn FnMut(_)>);
 
@@ -39,7 +38,7 @@ pub fn start(window: Rc<Window>, ev_handler: &IoHandler) {
         .unwrap();
     cb.forget();
 
-    let sender = &ev_handler.sender;
+    let ref sender = ev_handler.sender;
     bind_button("btn-a", JoypadButton::A, sender);
     bind_button("btn-b", JoypadButton::B, sender);
     bind_button("btn-up", JoypadButton::Up, sender);
@@ -56,7 +55,7 @@ fn auto_resize_canvas(window: Rc<Window>) -> Result<(), &'static str> {
 
     // Listen for resize event on browser client. Adjust winit window dimensions
     // on event trigger
-    let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move |_e: web_sys::Event| {
+    let closure = Closure::wrap(Box::new(move |_e: web_sys::Event| {
         let size = self::get_canvas_size();
         window.set_inner_size(size)
     }) as Box<dyn FnMut(_)>);

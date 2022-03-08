@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use std::fmt::Display;
 use std::future::Future;
 use std::time::Duration;
 
@@ -38,6 +39,14 @@ impl Default for Fps {
             current_rate: Default::default(),
             start: Instant::now(),
         }
+    }
+}
+
+impl Display for Fps {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let current_rate = self.current_rate();
+        write!(f, "{current_rate} FPS")?;
+        Ok(())
     }
 }
 
