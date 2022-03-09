@@ -111,8 +111,8 @@ impl Bus {
             speed: 1,
             speed_switch: false,
         };
-        log::info!("Loaded cartridge: {:?}", bus.cartridge);
-        log::info!("Game Boy mode: {gb_mode:?}");
+        log::debug!("Loaded cartridge: {:?}", bus.cartridge);
+        log::debug!("Game Boy mode: {gb_mode:?}");
 
         // Startup sequence
         bus.initialize();
@@ -169,10 +169,9 @@ impl Bus {
             ..
         } = self;
 
-        let speed = *speed;
-
-        let cpu_clocks = clocks + dma_clocks * (speed as u32);
-        let gpu_clocks = clocks / (speed as u32) + dma_clocks;
+        let speed = u32::from(*speed);
+        let cpu_clocks = clocks + dma_clocks * speed;
+        let gpu_clocks = clocks / speed + dma_clocks;
 
         // update the timer
         timer.sync(cpu_clocks);
@@ -195,9 +194,9 @@ impl Bus {
 
     pub fn switch_speed(&mut self) {
         if self.speed_switch {
-            self.speed = [2, 1][(self.speed - 1) as usize];
+            self.speed = [2, 1][usize::from(self.speed & 1)];
+            self.speed_switch = false;
         }
-        self.speed_switch = false;
     }
 
     fn start_dma(&mut self) -> u32 {
@@ -212,9 +211,7 @@ impl Bus {
             return 0;
         }
 
-        self.dma_cpblk(0x10);
-
-        self.dma.dma_length -= 1;
+        self.dma_cpblk();
 
         if self.dma.dma_length == 0x7F {
             self.dma.dma_mode = None
@@ -223,25 +220,29 @@ impl Bus {
         0x08
     }
     fn start_gdma(&mut self) -> u32 {
-        let gdma_len = 1 + self.dma.dma_length as u16;
-
-        let blk_size = gdma_len * 0x10;
-        self.dma_cpblk(blk_size);
-
-        self.dma.dma_length = 0x7F;
+        let gdma_len = 1 + self.dma.dma_length as u32;
+        for _ in 0..gdma_len {
+            self.dma_cpblk();
+        }
         self.dma.dma_mode = None;
 
         0x08 * gdma_len as u32
     }
-    fn dma_cpblk(&mut self, blk_size: u16) {
+    fn dma_cpblk(&mut self) {
         let src_addr = self.dma.src;
 
-        for i in 0x00..blk_size {
+        for i in 0x00..0x10 {
             let src = self.mem_read(src_addr + i);
-            self.mem_write(self.dma.dst + i, src)
+            self.gpu.mem_write(self.dma.dst + i, src)
         }
-        self.dma.src += blk_size;
-        self.dma.dst += blk_size;
+        self.dma.src += 0x10;
+        self.dma.dst += 0x10;
+
+        if self.dma.dma_length == 0 {
+            self.dma.dma_length = 0x7F;
+        } else {
+            self.dma.dma_length -= 1;
+        }
     }
 }
 
@@ -314,7 +315,7 @@ impl MemoryAccess for Bus {
             }
             0xff40..=0xff4b | 0xff4f => self.gpu.mem_write(addr, value),
             0xff4d => {
-                if value & 1 != 0 {
+                if value & 1 == 1 {
                     self.speed_switch = true
                 }
             }

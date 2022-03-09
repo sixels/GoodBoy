@@ -234,40 +234,39 @@ impl Gpu {
             let win_x = -((self.win_x as i32) - 7) + (x as i32);
             let bg_x = self.scroll_x as u32 + x as u32;
 
-            let (tilemap_base, tile_y, tile_x, pixel_y, pixel_x);
-
-            if win_y >= 0 && win_x >= 0 {
-                tilemap_base = self.lcd_control.win_tilemap();
-                tile_y = win_tile_y;
-                tile_x = (win_x as u16) >> 3;
-                pixel_y = win_y as u16 & 0x07;
-                pixel_x = win_x as u8 & 0x07;
+            let (tilemap_base, tile_y, tile_x, pixel_y, pixel_x) = if win_y >= 0 && win_x >= 0 {
+                (
+                    self.lcd_control.win_tilemap(),
+                    win_tile_y,
+                    (win_x as u16 >> 3),
+                    win_y as u16 & 0x07,
+                    win_x as u8 & 0x07,
+                )
             } else if do_render {
-                tilemap_base = self.lcd_control.bg_tilemap();
-                tile_y = bg_tile_y;
-                tile_x = (bg_x as u16 >> 3) & 31;
-                pixel_y = bg_y as u16 & 0x07;
-                pixel_x = bg_x as u8 & 0x07;
+                (
+                    self.lcd_control.bg_tilemap(),
+                    bg_tile_y,
+                    (bg_x as u16 >> 3) & 31,
+                    bg_y as u16 & 0x07,
+                    bg_x as u8 & 0x07,
+                )
             } else {
                 continue;
-            }
+            };
 
             let tile_nr = self.mem_read(tilemap_base + tile_y * 32 + tile_x);
 
-            let vram_bank = self.vram_bank;
-            let (paletten, xflip, yflip, prio) = if self.gb_mode == GbMode::Cgb {
-                self.vram_bank = 1;
-                let f = self.mem_read(tilemap_base + tile_y * 32 + tile_x);
-
-                self.vram_bank = (f & 0x08 != 0) as usize;
+            let (paletten, use_bank1, xflip, yflip, prio) = if self.gb_mode == GbMode::Cgb {
+                let f = self.read_bank1(tilemap_base + tile_y * 32 + tile_x) as usize;
                 (
-                    (f & 0x07) as usize,
-                    (f & 0x20) != 0,
-                    (f & 0x40) != 0,
-                    (f & 0x80) != 0,
+                    f & 0b111,
+                    (f & 0x08) == 0x08,
+                    (f & 0x20) == 0x20,
+                    (f & 0x40) == 0x40,
+                    (f & 0x80) == 0x80,
                 )
             } else {
-                (0, false, false, false)
+                (0, false, false, false, false)
             };
 
             let tile_addr = self.lcd_control.tileset_base()
@@ -282,8 +281,12 @@ impl Gpu {
             } else {
                 tile_addr + pixel_y * 2
             };
-            let (b1, b2) = (self.mem_read(a0), self.mem_read(a0 + 1));
-            self.vram_bank = vram_bank;
+
+            let (b1, b2) = if use_bank1 {
+                (self.read_bank1(a0), self.read_bank1(a0 + 1))
+            } else {
+                (self.read_bank0(a0), self.read_bank0(a0 + 1))
+            };
 
             let xbit = if xflip { pixel_x } else { 7 - pixel_x } as u32;
             let colorn = if b1 & (1 << xbit) != 0 { 1 } else { 0 }
@@ -312,8 +315,8 @@ impl Gpu {
         }
 
         let mut sprites_in_row: usize = 0;
-
-        for sprite in self.sprites {
+        let sprites = self.sprites.clone();
+        for sprite in sprites.iter().rev() {
             // each row can only have 10 sprites
             if sprites_in_row >= 10 {
                 break;
@@ -328,7 +331,7 @@ impl Gpu {
             {
                 continue;
             }
-            sprites_in_row += 1;
+            // sprites_in_row += 1;
 
             let tile_y = if sprite.flip_y {
                 sprite_size - 1 - (scan_line - sprite.y)
@@ -339,12 +342,11 @@ impl Gpu {
             let tile_number = sprite.tile_number & if sprite_size == 16 { 0xFE } else { 0xFF };
             let tile_addr = 0x8000 + tile_number * 16 + tile_y * 2;
 
-            let vram_bank = self.vram_bank;
-            if self.gb_mode == GbMode::Cgb {
-                self.vram_bank = sprite.vram_bank;
-            }
-            let (b1, b2) = (self.mem_read(tile_addr), self.mem_read(tile_addr + 1));
-            self.vram_bank = vram_bank;
+            let (b1, b2) = if sprite.vram_bank == 1 && self.gb_mode == GbMode::Cgb {
+                (self.read_bank1(tile_addr), self.read_bank1(tile_addr + 1))
+            } else {
+                (self.read_bank0(tile_addr), self.read_bank0(tile_addr + 1))
+            };
 
             'bits: for x in 0..8 {
                 if sprite.x + x < 0 || sprite.x + x >= (SCREEN_WIDTH as i32) {
@@ -384,6 +386,19 @@ impl Gpu {
                 self.set_color((sprite.x + x) as usize, color)
             }
         }
+    }
+
+    fn read_bank0(&self, addr: u16) -> u8 {
+        if addr < 0x8000 || addr >= 0xA000 {
+            panic!("Reading a non-bank0 address: 0x{addr:04x}");
+        }
+        self.vram[addr as usize & 0x1FFF]
+    }
+    fn read_bank1(&self, addr: u16) -> u8 {
+        if addr < 0x8000 || addr >= 0xA000 {
+            panic!("Reading a non-bank1 address: 0x{addr:04x}");
+        }
+        self.vram[0x2000 + (addr as usize & 0x1FFF)]
     }
 
     fn set_color(&mut self, x: usize, color: Color) {

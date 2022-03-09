@@ -20,25 +20,27 @@ pub struct Cartridge {
 
 impl Cartridge {
     pub fn new(rom: &[u8]) -> Cartridge {
-        fn ram_size(v: u8) -> usize {
-            match v {
-                1 => 0x800,
-                2 => 0x2000,
-                3 => 0x8000,
-                4 => 0x20000,
-                _ => 0,
-            }
-        }
-
         let mode = match rom[GB_MODE_ADDR] {
             // CGB only
             0xC0 => GbMode::Cgb,
             // game works on both CGB and DMG
-            0x80 => GbMode::default(),
+            0x80 => {
+                let default_gb_mode = GbMode::default();
+                log::info!("No specific mode specified, using the default ({default_gb_mode:?})");
+                default_gb_mode
+            }
             _ => GbMode::Dmg,
         };
 
-        let ram_size = ram_size(rom[RAM_SIZE_ADDR]);
+        let ram_size = match rom[RAM_SIZE_ADDR] {
+            0x00 => 0x00000, // No RAM
+            0x01 => 0x00800, // Undocumented
+            0x02 => 0x02000, // 8 KB
+            0x03 => 0x08000, // 32 KB
+            0x04 => 0x20000, // 128 KB
+            0x05 => 0x16000, // 64 KB
+            _ => unreachable!(),
+        };
 
         let title_len = if mode == GbMode::Dmg { 16 } else { 11 };
         let title = (0..title_len)
@@ -46,7 +48,7 @@ impl Cartridge {
                 rom.get(TITLE_ADDR + i)
                     .copied()
                     .filter(|byte| *byte != 0)
-                    .map(|byte| byte as char)
+                    .map(char::from)
             })
             .collect::<String>();
 
@@ -93,7 +95,7 @@ impl Debug for Cartridge {
         f.debug_struct("Cartridge")
             .field("title", &self.title)
             .field("mbc", &self.mbc.description())
-            .field("ram_size", &(self.ram_size / 8))
+            .field("ram_size", &self.ram_size)
             .finish()
     }
 }

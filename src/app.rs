@@ -42,6 +42,7 @@ impl App {
         })
     }
 
+    #[allow(unused_mut)]
     pub async fn run(mut self) {
         let (mut io_handler, io_rx) = IoHandler::new();
         let (title_sender, title_receiver) = mpsc::channel();

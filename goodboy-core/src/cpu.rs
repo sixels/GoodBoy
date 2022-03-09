@@ -112,7 +112,7 @@ impl Cpu {
         let opcode = Cpu::decode(byte, false);
 
         let opcode = match opcode {
-            Some(Opcode { code: 0xCB, .. }) => Cpu::decode(self.fetch_byte(), true),
+            Some(Opcode { instruction: Instruction::CB, .. }) => Cpu::decode(self.fetch_byte(), true),
             _ => opcode,
         };
 
@@ -467,17 +467,17 @@ impl Cpu {
                 unreachable!()
             }
 
-            // Instruction::Unused => {
-            //     log::warn!(
-            //         "Forbidden opcode at 0x{:04X}: {opcode:X?}",
-            //         self.pc.saturating_sub(opcode.length as u16),
-            //     )
-            // }
+            Instruction::Unused => {
+                log::warn!(
+                    "Forbidden opcode at 0x{:04X}: {opcode:X?}",
+                    self.pc.wrapping_sub(opcode.length as u16),
+                )
+            }
 
             _ => {
                 return Err(format!(
                     "Invalid opcode at 0x{:04X}: {opcode:X?}",
-                    self.pc.saturating_sub(opcode.length as u16)
+                    self.pc.wrapping_sub(opcode.length as u16)
                 ))
             }
         };

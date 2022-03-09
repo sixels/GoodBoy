@@ -105,7 +105,7 @@ pub struct Opcode<'a> {
 }
 
 impl<'a> Opcode<'a> {
-    /// Creates a new instruction
+    /// Creates a new unprefixed instruction
     pub fn new(
         code: u8,
         len: usize,
@@ -170,16 +170,14 @@ macro_rules! unused_instruction {
 
 lazy_static::lazy_static! {
     pub static ref OPCODE_MAP: HashMap<u8, &'static Opcode<'static>> = {
-        let opcodes = OPCODE_VEC.iter()
+        OPCODE_VEC.iter()
             .filter_map(|opcode| (!opcode.prefixed).then(|| (opcode.code, opcode)))
-            .collect::<HashMap<_, _>>();
-        opcodes
+            .collect::<HashMap<_, _>>()
     };
     pub static ref CB_OPCODE_MAP: HashMap<u8, &'static Opcode<'static>> = {
-        let opcodes = OPCODE_VEC.iter()
+        OPCODE_VEC.iter()
             .filter_map(|opcode| opcode.prefixed.then(|| (opcode.code, opcode)))
-            .collect::<HashMap<_, _>>();
-        opcodes
+            .collect::<HashMap<_, _>>()
     };
 
     static ref OPCODE_VEC: Vec<Opcode<'static>> = vec![
@@ -196,7 +194,6 @@ lazy_static::lazy_static! {
         unused_instruction!(0xF4),
         unused_instruction!(0xFC),
         unused_instruction!(0xFD),
-
 
         Opcode::new(0x10, 1, 4, Instruction::STOP, "STOP"),
         Opcode::new(0x76, 1, 4, Instruction::HALT, "HALT"),
@@ -476,7 +473,6 @@ lazy_static::lazy_static! {
         Opcode::new(0xEF, 1, 16, Instruction::RST(0x28), "RST 0x28"),
         Opcode::new(0xFF, 1, 16, Instruction::RST(0x38), "RST 0x38"),
 
-
         // PREFIXED
         Opcode::new(0xCB, 1, 0, Instruction::CB, "0xCB"),
 
@@ -755,31 +751,33 @@ mod tests {
     fn check_opcode_duplicates() {
         env_logger::init();
 
+        let has_duplicated_opcodes = |source: Vec<&&Opcode>, prefixed: bool| -> bool {
+            let mut unique = source.clone();
+
+            let mut set = HashSet::new();
+            unique.retain(|op| {
+                let unique = set.insert(op.code);
+                if !unique {
+                    log::error!("Duplicated: 0x{:02x}", op.code);
+                }
+                unique
+            });
+
+            let opcode_vec = OPCODE_VEC
+                .iter()
+                .filter(|opcode| opcode.prefixed == prefixed)
+                .collect::<Vec<_>>();
+
+            unique.len() != opcode_vec.len()
+        };
+
         // unprefixed
         let has_duplicates = has_duplicated_opcodes(OPCODE_MAP.values().collect(), false);
         assert!(!has_duplicates);
         // prefixed
         let cb_has_duplicates = has_duplicated_opcodes(CB_OPCODE_MAP.values().collect(), true);
         assert!(!cb_has_duplicates);
-    }
 
-    fn has_duplicated_opcodes(source: Vec<&&Opcode>, prefixed: bool) -> bool {
-        let mut unique = source.clone();
-
-        let mut set = HashSet::new();
-        unique.retain(|op| {
-            let unique = set.insert(op.code);
-            if !unique {
-                log::error!("Duplicated: 0x{:02x}", op.code);
-            }
-            unique
-        });
-
-        let opcode_vec = OPCODE_VEC
-            .iter()
-            .filter(|opcode| opcode.prefixed == prefixed)
-            .collect::<Vec<_>>();
-
-        unique.len() != opcode_vec.len()
+        assert!(OPCODE_VEC.len() == 0x100 * 2)
     }
 }

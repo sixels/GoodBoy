@@ -51,11 +51,11 @@ impl Registers {
 
         if gb_mode == GbMode::Cgb {
             regs.a = 0x11;
-            // regs.c = 0x30;
-            // regs.d = 0xFF;
-            // regs.e = 0x56;
-            // regs.h = 0x00;
-            // regs.l = 0x0D;
+            regs.c = 0x30;
+            regs.d = 0xFF;
+            regs.e = 0x56;
+            regs.h = 0x00;
+            regs.l = 0x0D;
         }
 
         regs

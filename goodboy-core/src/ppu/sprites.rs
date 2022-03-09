@@ -29,7 +29,7 @@ pub fn update_sprites(sprites: &mut [Sprite], sprite_addr: usize, sprite_value: 
             sprites[i].palette = (sprite_value & 0x10) == 0x10;
 
             sprites[i].paletten = (sprite_value & 0x07) as usize;
-            sprites[i].vram_bank = ((sprite_value & 0x08) != 0) as usize;
+            sprites[i].vram_bank = ((sprite_value & 0x08) == 0x08) as usize;
         }
     }
 }
