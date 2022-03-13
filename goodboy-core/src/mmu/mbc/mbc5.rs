@@ -35,7 +35,7 @@ impl Mbc5 {
             Vec::new()
         };
 
-        let save_path = if capabilities.contains(&MbcCapability::Battery) {
+        let save_path = if !cfg!(target_arch = "wasm32") && capabilities.contains(&MbcCapability::Battery) {
             Some(save_path.as_ref().to_path_buf())
         } else {
             None

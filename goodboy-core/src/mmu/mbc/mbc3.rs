@@ -124,12 +124,12 @@ impl Mbc3 {
                 capabilities.push(MbcCapability::Battery);
 
                 // try to retrieve the save file
-                let ram = match fs::File::open(&save_path) {
-                    Ok(mut f) => {
+                let ram = match (cfg!(target_arch = "wasm32"), fs::File::open(&save_path)) {
+                    (true, Ok(mut f)) => {
                         let mut ram: Vec<u8> = std::iter::repeat(0).take(ram_size).collect();
                         f.read_to_end(&mut ram).map(|_| ram).ok()
                     }
-                    Err(_) => None,
+                    (_, Err(_)) | (false, _) => None,
                 };
 
                 (ram, Some(save_path.as_ref().to_path_buf()), capabilities)
