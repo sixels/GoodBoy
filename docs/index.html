@@ -17,17 +17,95 @@
 
   <script>
     // register ServiceWorker
-    // window.onload = () => {
-    //   "use strict";
+    window.onload = () => {
+      "use strict";
 
-    //   if ("serviceWorker" in navigator) {
-    //     navigator.serviceWorker.register("./sw.js");
-    //   }
-    // };
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("./sw.js");
+      }
+    };
   </script>
 </head>
 
 <body>
+  <div class="sidebar">
+    <div class="sidebar-content">
+      <h1 class="title">GoodBoy</h1>
+      <div class="sidebar-body">
+        <button class="insert-cartridge" id="btn-insert-cartridge">
+          Open a game
+        </button>
+        <div class="sidebar-controls">
+          <table class="controls-table">
+            <tr>
+              <th>Keyboard Key</th>
+              <th>GameBoy Button</th>
+            </tr>
+            <tr>
+              <td>W</td>
+              <td>Up</td>
+            </tr>
+            <tr>
+              <td>A</td>
+              <td>Left</td>
+            </tr>
+            <tr>
+              <td>S</td>
+              <td>Down</td>
+            </tr>
+            <tr>
+              <td>D</td>
+              <td>Right</td>
+            </tr>
+            <tr>
+              <td>Z</td>
+              <td>A</td>
+            </tr>
+            <tr>
+              <td>X</td>
+              <td>B</td>
+            </tr>
+            <tr>
+              <td>Return</td>
+              <td>Start</td>
+            </tr>
+            <tr>
+              <td>Space</td>
+              <td>Select</td>
+            </tr>
+          </table>
+
+          <table class="actions-table">
+            <tr>
+              <th>Keyboard Key</th>
+              <th>Action</th>
+            </tr>
+            <tr>
+              <td>Esc</td>
+              <td>Open a game</td>
+            </tr>
+            <tr>
+              <td>Tab</td>
+              <td>Next speed (not supported on web version)</td>
+            </tr>
+            <tr>
+              <td>Shift + Tab</td>
+              <td>Previous speed (not supported on web version)</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div
+    class="sidebar-thumb"
+    id="sidebar-thumb"
+    aria-label="Toggle side bar"
+    title="Toggle side bar"
+  >
+    <div class="sidebar-thumb-bar"></div>
+  </div>
+
   <div
     class="gameboy"
     style="
@@ -69,6 +147,15 @@
   </div>
 
   <script src="./pkg/goodboy.js"></script>
+
+  <script>
+    let sidebar = document.querySelector(".sidebar");
+    let sidebar_thumb = document.getElementById("sidebar-thumb");
+
+    sidebar_thumb.addEventListener("click", (_) => {
+      sidebar.classList.toggle("is-open");
+    });
+  </script>
 
   <script>
     const { start } = wasm_bindgen;

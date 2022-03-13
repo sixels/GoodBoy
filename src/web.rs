@@ -24,7 +24,7 @@ pub fn init(window: Rc<Window>, ev_handler: &IoHandler, title_sender: &mpsc::Sen
         })
         .expect("Could not create the canvas");
 
-    let cb = Closure::wrap(Box::new({
+    let cartridge_cb = Closure::wrap(Box::new({
         let sender = ev_handler.sender.clone();
         let title_sender = title_sender.clone();
         move |_: web_sys::Event| {
@@ -33,10 +33,16 @@ pub fn init(window: Rc<Window>, ev_handler: &IoHandler, title_sender: &mpsc::Sen
         }
     }) as Box<dyn FnMut(_)>);
 
-    let btn = document.get_element_by_id("btn-start").unwrap();
-    btn.add_event_listener_with_callback("mousedown", cb.as_ref().unchecked_ref())
-        .unwrap();
-    cb.forget();
+    document
+        .get_element_by_id("btn-insert-cartridge")
+        .and_then(|btn| {
+            btn.add_event_listener_with_callback("mousedown", cartridge_cb.as_ref().unchecked_ref())
+                .ok()
+        })
+        .unwrap_or_else(|| {
+            log::warn!("Error while assign a callback to the element \"btn-insert-cartridge\"")
+        });
+    cartridge_cb.forget();
 
     let ref sender = ev_handler.sender;
     bind_button("btn-a", JoypadButton::A, sender);
@@ -45,6 +51,8 @@ pub fn init(window: Rc<Window>, ev_handler: &IoHandler, title_sender: &mpsc::Sen
     bind_button("btn-down", JoypadButton::Down, sender);
     bind_button("btn-left", JoypadButton::Left, sender);
     bind_button("btn-right", JoypadButton::Right, sender);
+    bind_button("btn-start", JoypadButton::Start, sender);
+    bind_button("btn-select", JoypadButton::Select, sender);
 }
 
 fn auto_resize_canvas(window: Rc<Window>) -> Result<(), &'static str> {
@@ -106,7 +114,10 @@ fn key_press_cb(
     button: JoypadButton,
     tx: mpsc::Sender<IoEvent>,
 ) -> Closure<dyn FnMut(web_sys::Event)> {
-    return Closure::wrap(Box::new(move |_: web_sys::Event| {
+    return Closure::wrap(Box::new(move |ev: web_sys::Event| {
+        let ev_target = ev.target().unwrap();
+        let target = ev_target.dyn_ref::<web_sys::Element>().unwrap();
+        target.class_list().add_1("clicked").unwrap();
         tx.send(IoEvent::ButtonPressed(button)).ok();
     }) as Box<dyn FnMut(_)>);
 }
@@ -114,7 +125,10 @@ fn key_release_cb(
     button: JoypadButton,
     tx: mpsc::Sender<IoEvent>,
 ) -> Closure<dyn FnMut(web_sys::Event)> {
-    return Closure::wrap(Box::new(move |_: web_sys::Event| {
+    return Closure::wrap(Box::new(move |ev: web_sys::Event| {
+        let ev_target = ev.target().unwrap();
+        let target = ev_target.dyn_ref::<web_sys::Element>().unwrap();
+        target.class_list().remove_1("clicked").unwrap();
         tx.send(IoEvent::ButtonReleased(button)).ok();
     }) as Box<dyn FnMut(_)>);
 }
