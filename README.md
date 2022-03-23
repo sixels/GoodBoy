@@ -5,6 +5,8 @@
     <small> Sound not included </small>
 </p>
 
+<p align="center"> Web version is available at https://sixels.github.io/GoodBoy </p>
+
 <div align="center">
     <img src="assets/showcase/pokemon_red.png" width="420px" />
     <br />
@@ -20,19 +22,7 @@ This emulator is not perfect and lack some features. Core features that are wort
 - Joypad implemented
 - Support to MBC0, MBC1, MBC3 (without timer) and MBC5 (without rumble) cartridges
 - Runs on browser (Experimental, not ready yet)
-
-There are also some non-core features implemented just for fun:
-
-- FPS counter overlay
-- Support for multiple color schemes
-
-Planned features:
-
-- CLI arguments
-- Quick save/load state
-- Implement MBC3 timer
-- CGB support (Game Boy Color)
-- Sound support
+- Partial CGB support (Game Boy Color)
 
 ## Controls
 
@@ -51,22 +41,16 @@ Basic keyboard bindings
 
 Other bindings:
 
-| Keyboard Key                        |        Action         |
-| ----------------------------------- | :-------------------: |
-| <kbd>F1</kbd>                       | Disable the FPS limit |
-| <kbd>Tab</kbd>                      |   Next Colorscheme    |
-| <kbd>⇧ Shift</kbd> + <kbd>Tab</kbd> | Previous Colorscheme  |
-| <kbd>Ctrl</kbd> + <kbd>Q</kbd>      |         Exit          |
+| Keyboard Key                        |        Action        |
+| ----------------------------------- | :------------------: |
+| <kbd>Tab</kbd>                      |   Next Colorscheme   |
+| <kbd>Esc</kbd>                      |     Open a game      |
+| <kbd>⇧ Shift</kbd> + <kbd>Tab</kbd> | Previous Colorscheme |
+| <kbd>Ctrl</kbd> + <kbd>Q</kbd>      |         Exit         |
+
+Some keybindings are exclusive for native builds
 
 ## See it in action
-
-### Changing color schemes on the fly!
-
-<div align="center">
-    <img src="assets/showcase/changing_color_schemes.gif" width="420px" />
-    <br />
-    <small> Game: The Legend of Zelda: Link's Awekening </small>
-</div>
 
 ### In-game screenshots
 
@@ -74,19 +58,26 @@ Other bindings:
     <table>
         <tr>
             <td>
-                <img src="assets/showcase/dr_mario.png" width="360px" />
+                <img src="assets/showcase/zelda.png" width="360px" />
                 <br />
-                <small> Game: Dr Mario </small>
+                <small> Game: The Legend of Zelda: Link’s Awakening </small>
             </td>
             <td>
-                <img src="assets/showcase/disco_elysium.png" width="360px" />
+                <img src="assets/showcase/pokemon_gold.png" width="360px" />
                 <br />
-                <small> Game: Disco Elysium (Demake) </small>
+                <small> Game: Pokémon Gold </small>
             </td>
+        </tr>
+        <tr>
             <td>
                 <img src="assets/showcase/mario_land_2.png" width="360px" />
                 <br />
                 <small> Game: Super Mario Land 2 </small>
+            </td>
+            <td>
+                <img src="assets/showcase/pokemon_yellow.png" width="360px" />
+                <br />
+                <small> Game: Pokémon Yellow </small>
             </td>
         </tr>
     </table>
@@ -94,37 +85,20 @@ Other bindings:
 
 ## How do i run it on my machine?
 
-First, clone and cd to the project (Duh):
+First, clone and cd to the project:
 
 ```sh
 git clone https://github.com/sixels/goodboy && cd goodboy
 ```
 
-It is supposed to be cross platform (however I tested it only on Linux). Setup Rust and Cargo then build the project:
+It is supposed to be cross platform (however I tested it only on Linux). Setup Rust and Cargo on your machine then build the project:
 
 ```sh
-cargo +nightly build --release
+cargo build --release
 ```
 
 run with:
 
 ```sh
-./target/release/goodboy PATH/TO/ROM.gb
+./target/release/goodboy [PATH/TO/ROM.gb]
 ```
-
-## Running on browser
-
-Use my `build_wasm.sh` script to compile the project to wasm32 (you will need to install [wasm-bindgen cli](https://rustwasm.github.io/wasm-bindgen/reference/cli.html) before):
-
-```sh
-sh ./build_wasm.sh release
-```
-
-You can now host the directory target/wasm_bindings (here I'm using Python's http module
-because of its simplicity, but you can use whatever works for you):
-
-```sh
-python3 -m http.server --directory target/wasm_bindings 8080
-```
-
-Open your browser and go to [localhost:8080](http://localhost:8080)

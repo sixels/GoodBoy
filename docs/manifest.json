@@ -1,6 +1,7 @@
 {
   "name": "GoodBoy PWA",
   "short_name": "goodboy-pwa",
+  "version": "0.0.1",
   "lang": "en-US",
   "start_url": "./index.html",
   "display": "standalone",
